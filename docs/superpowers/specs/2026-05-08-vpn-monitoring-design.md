@@ -149,7 +149,7 @@ When the VPN is slow or unavailable:
 ## Repository Structure
 
 ```text
-vpn-dashboard/
+vpn-monitoring/
   ansible/
     inventory.example.yml
     inventory.yml
