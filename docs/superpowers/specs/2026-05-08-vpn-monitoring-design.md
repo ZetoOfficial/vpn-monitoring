@@ -53,9 +53,10 @@ vdsina.2g.com
     - node_exporter
     - wireguard_exporter
     - cadvisor
+    - blackbox_exporter
 ```
 
-Prometheus on `vdsina.com` scrapes exporters on `vdsina.2g.com` by public static IPv4. Firewall rules on `vdsina.2g.com` allow exporter ports only from the public IPv4 of `vdsina.com`.
+Prometheus on `vdsina.com` scrapes exporters on `vdsina.2g.com` by public static IPv4. Firewall rules on `vdsina.2g.com` allow `node_exporter`, `cadvisor`, `wireguard_exporter`, and `blackbox_exporter` ports only from the public IPv4 of `vdsina.com`.
 
 ## Access Model
 
@@ -89,14 +90,15 @@ The existing HTTPS domain is deferred to Phase 2. If used later, the preferred m
 
 ### On `vdsina.com`
 
-- `prometheus`: stores metrics with a short retention window.
-- `grafana`: dashboards provisioned from the repository.
+- `prometheus`: stores metrics with a short retention window and evaluates alert rules locally (no Alertmanager in the MVP).
+- `grafana`: datasources and dashboards provisioned from the repository.
 - `blackbox_exporter`: external connectivity checks from the monitoring host.
 - `admin WireGuard`: private operator access to Grafana.
 
 Initial Prometheus settings:
 
-- retention: 15 days
+- retention time: 15 days
+- retention size: 2 GB (whichever cap fires first)
 - scrape interval: 30 seconds
 - no Loki/log ingestion
 
@@ -105,38 +107,40 @@ Initial Prometheus settings:
 - `node_exporter`: CPU, memory, disk, load, uptime, network throughput, drops/errors.
 - `wireguard_exporter`: peer handshakes and traffic counters.
 - `cadvisor`: Docker container resource usage for `wg-easy` and related containers.
+- `blackbox_exporter`: external probes from the VPN host so connectivity loss can be attributed to the VPN-side uplink instead of the monitoring-side uplink.
 
 ## Dashboards
 
-The MVP should provide these Grafana dashboards:
+For the MVP, Grafana ships with three community dashboards committed as JSON in `monitoring/grafana/dashboards/` and provisioned automatically through `monitoring/grafana/provisioning/`:
 
-- VPN Overview
-  - active WireGuard peers
-  - latest handshake by peer
-  - RX/TX by peer
-  - peers without handshake for more than 10 minutes or 1 hour
-- VPS Health
-  - CPU usage
-  - load average
-  - RAM and swap
-  - disk usage
-  - network throughput
-  - packet drops/errors
-  - uptime/reboots
-- Docker / wg-easy
-  - container up/down state
-  - container CPU and memory
-  - container restarts when available
-- External Connectivity
-  - latency and packet loss to stable external targets such as `1.1.1.1` and `8.8.8.8`
-  - HTTP probes to stable external sites
+- Node Exporter Full (grafana.com ID `1860`) — VPS health for `vdsina.2g.com`.
+- cAdvisor (grafana.com ID `14282`) — Docker container CPU, memory, restarts for `wg-easy` and exporters.
+- WireGuard (grafana.com ID `12177`) — peers, handshakes, RX/TX.
+
+A Grafana datasource for Prometheus is provisioned from `monitoring/grafana/provisioning/datasources/prometheus.yml`. Operators do not click through the UI to wire anything up.
+
+A custom "VPN Triage" dashboard tailored to the diagnostic workflow in this document is a Phase 2 candidate; the community dashboards above cover the building blocks until that exists.
+
+## Alerting
+
+Prometheus evaluates a small set of rules from `monitoring/prometheus/alerts.yml` and surfaces them in its own UI (`/alerts`) and in a Grafana Alert List panel. There is no Alertmanager and no notification routing in the MVP.
+
+Starting rules (thresholds are deliberately rough and meant to be tuned after the first week of operation):
+
+- `WireGuardPeerNoHandshake` — peer without a handshake for more than 10 minutes.
+- `HighCPU` — sustained CPU usage above 90% for 5 minutes.
+- `DiskAlmostFull` — disk usage above 85%.
+- `BlackboxProbeFailed` — any external probe target failing for 2 minutes.
+- `ContainerRestartLoop` — a container restarting more than 3 times within 10 minutes.
+
+Notification routing through Alertmanager (Telegram, email) is a Phase 2 candidate.
 
 ## Diagnostic Workflow
 
 When the VPN is slow or unavailable:
 
 1. Open Grafana through the admin VPN on `vdsina.com`.
-2. Check external connectivity from `vdsina.com` and, if available, probes involving `vdsina.2g.com`.
+2. Compare external connectivity probes from `vdsina.com` and from `vdsina.2g.com`. Divergence isolates the problem to one provider's uplink.
 3. Check `vdsina.2g.com` CPU, RAM, load, disk, network drops, and errors.
 4. Check Docker and `wg-easy` container health.
 5. Check WireGuard peers: latest handshake, active clients, and per-peer traffic.
@@ -186,6 +190,7 @@ The real inventory and secrets are not committed.
 The Makefile should wrap common Ansible commands:
 
 ```bash
+make setup
 make ping
 make deploy-monitoring
 make deploy-exporters
@@ -195,6 +200,7 @@ make status
 
 Expected behavior:
 
+- `make setup`: install Ansible collections required by the playbooks (one-time, idempotent; reads `ansible/requirements.yml`).
 - `make ping`: verify SSH/Ansible connectivity.
 - `make deploy-monitoring`: configure `vdsina.com` and start the monitoring stack.
 - `make deploy-exporters`: configure `vdsina.2g.com` and start exporters.
@@ -212,7 +218,8 @@ Expected behavior:
 
 ## Phase 2 Candidates
 
-- Telegram alerts through Alertmanager.
+- Telegram or email alert routing through Alertmanager (rules already exist in MVP).
+- Custom "VPN Triage" Grafana dashboard built around the diagnostic workflow in this document.
 - Loki for selected logs if 1 GB RAM is no longer a constraint or monitoring moves to a larger host.
 - HTTPS reverse proxy for Grafana, preferably still limited to admin VPN.
 - CI checks for `ansible-lint`, `yamllint`, and `docker compose config`.
