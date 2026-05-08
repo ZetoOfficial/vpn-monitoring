@@ -317,31 +317,38 @@ Expected: `community.general` is downloaded into `ansible/.ansible/collections`.
 
 - [ ] **Step 3: Create `ansible/roles/docker/tasks/main.yml`**
 
-This installs Docker CE and the Compose plugin from `download.docker.com`. The Debian-packaged `docker.io` package is not used because it does not ship `docker-compose-plugin`, which the rest of the plan relies on for `docker compose up -d`.
+This installs Docker CE and the Compose plugin from `download.docker.com`. The Debian-packaged `docker.io` package is not used because it does not ship `docker-compose-plugin`, which the rest of the plan relies on for `docker compose up -d`. Distribution (`debian`/`ubuntu`) and architecture (`amd64`/`arm64`) are taken from gathered facts so the same role works on either OS.
 
 ```yaml
 ---
+- name: Assert distribution is supported
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution | lower in ["debian", "ubuntu"]
+      - ansible_architecture in ["x86_64", "aarch64"]
+    fail_msg: "docker role supports Debian/Ubuntu on x86_64/aarch64 only; got {{ ansible_distribution }}/{{ ansible_architecture }}."
+
 - name: Ensure /etc/apt/keyrings exists
   ansible.builtin.file:
     path: /etc/apt/keyrings
     state: directory
     mode: "0755"
 
-- name: Detect Debian codename
+- name: Detect distribution codename
   ansible.builtin.command: lsb_release -cs
   register: lsb_codename
   changed_when: false
 
 - name: Install Docker apt key
   ansible.builtin.get_url:
-    url: https://download.docker.com/linux/debian/gpg
+    url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
     dest: /etc/apt/keyrings/docker.asc
     mode: "0644"
     force: false
 
 - name: Add Docker apt repository
   ansible.builtin.apt_repository:
-    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ lsb_codename.stdout }} stable"
+    repo: "deb [arch={{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_architecture] }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ lsb_codename.stdout }} stable"
     filename: docker
     state: present
     update_cache: true
@@ -362,8 +369,6 @@ This installs Docker CE and the Compose plugin from `download.docker.com`. The D
     state: started
     enabled: true
 ```
-
-If the target hosts run Ubuntu instead of Debian, change the URL fragment from `linux/debian` to `linux/ubuntu` in both the keyring and the repository line.
 
 - [ ] **Step 4: Run syntax check**
 
