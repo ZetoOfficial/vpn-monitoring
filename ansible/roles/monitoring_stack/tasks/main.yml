@@ -1,0 +1,77 @@
+---
+- name: Assert Grafana password is configured
+  ansible.builtin.assert:
+    that:
+      - grafana_admin_password != "replace-with-local-secret"
+      - grafana_admin_password | length >= 12
+    fail_msg: "Set a real grafana_admin_password with at least 12 characters in ansible/inventory.yml."
+
+- name: Create monitoring config directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ monitoring_base_dir }}"
+    - "{{ monitoring_base_dir }}/prometheus"
+    - "{{ monitoring_base_dir }}/blackbox"
+    - "{{ monitoring_base_dir }}/grafana"
+
+- name: Render monitoring docker compose
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ monitoring_base_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Render Prometheus config
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ monitoring_base_dir }}/prometheus/prometheus.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Copy Prometheus alerts
+  ansible.builtin.copy:
+    src: "{{ monitoring_repo_dir }}/prometheus/alerts.yml"
+    dest: "{{ monitoring_base_dir }}/prometheus/alerts.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Copy blackbox config
+  ansible.builtin.copy:
+    src: "{{ monitoring_repo_dir }}/blackbox/blackbox.yml"
+    dest: "{{ monitoring_base_dir }}/blackbox/blackbox.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Copy Grafana provisioning
+  ansible.builtin.copy:
+    src: "{{ monitoring_repo_dir }}/grafana/provisioning/"
+    dest: "{{ monitoring_base_dir }}/grafana/provisioning/"
+    owner: root
+    group: root
+    mode: "0644"
+    directory_mode: "0755"
+
+- name: Copy Grafana dashboards
+  ansible.builtin.copy:
+    src: "{{ monitoring_repo_dir }}/grafana/dashboards/"
+    dest: "{{ monitoring_base_dir }}/grafana/dashboards/"
+    owner: root
+    group: root
+    mode: "0644"
+    directory_mode: "0755"
+
+- name: Start monitoring stack
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: "{{ monitoring_base_dir }}"
+  register: monitoring_compose
+  changed_when: "'Started' in monitoring_compose.stdout or 'Created' in monitoring_compose.stdout or 'Recreated' in monitoring_compose.stdout"

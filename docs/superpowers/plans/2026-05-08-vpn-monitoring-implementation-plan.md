@@ -130,6 +130,8 @@ all:
     admin_wg_client_public_key: "replace-with-client-public-key"
     legacy_wg_udp_ports:
       - "54651"
+    vpn_wg_udp_ports:
+      - "51820"
     grafana_admin_user: admin
     grafana_admin_password: "replace-with-local-secret"
     prometheus_retention: 15d
@@ -472,10 +474,19 @@ Exporter ports (`9100` node, `8080` cadvisor, `9586` wireguard, `9115` blackbox)
     port: "9115"
     proto: tcp
 
+- name: Keep existing wg-easy UDP ports open
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: udp
+  loop: "{{ vpn_wg_udp_ports | default([]) }}"
+
 - name: Enable UFW on exporter host
   community.general.ufw:
     state: enabled
 ```
+
+The `vpn_wg_udp_ports` loop mirrors the `legacy_wg_udp_ports` pattern on the monitoring host. Without it, enabling UFW would silently sever every active wg-easy peer the moment this role completes.
 
 - [ ] **Step 4: Run syntax check**
 
@@ -498,6 +509,7 @@ This role only manages the `wg-admin` interface on the monitoring host. UFW rule
 
 **Files:**
 - Create: `ansible/roles/admin_wireguard/tasks/main.yml`
+- Create: `ansible/roles/admin_wireguard/handlers/main.yml`
 - Create: `ansible/roles/admin_wireguard/templates/wg-admin.conf.j2`
 
 - [ ] **Step 1: Create `ansible/roles/admin_wireguard/templates/wg-admin.conf.j2`**
@@ -514,6 +526,8 @@ AllowedIPs = {{ admin_wg_client_allowed_ip }}
 ```
 
 - [ ] **Step 2: Create `ansible/roles/admin_wireguard/tasks/main.yml`**
+
+Handlers live in `handlers/main.yml`, not at the bottom of `tasks/main.yml` — Ansible parses tasks files as a flat task list.
 
 ```yaml
 ---
@@ -543,15 +557,19 @@ AllowedIPs = {{ admin_wg_client_allowed_ip }}
     name: "wg-quick@{{ admin_wg_interface }}"
     enabled: true
     state: started
-
-handlers:
-  - name: Restart admin WireGuard
-    ansible.builtin.service:
-      name: "wg-quick@{{ admin_wg_interface }}"
-      state: restarted
 ```
 
-- [ ] **Step 3: Run syntax check**
+- [ ] **Step 3: Create `ansible/roles/admin_wireguard/handlers/main.yml`**
+
+```yaml
+---
+- name: Restart admin WireGuard
+  ansible.builtin.service:
+    name: "wg-quick@{{ admin_wg_interface }}"
+    state: restarted
+```
+
+- [ ] **Step 4: Run syntax check**
 
 ```bash
 make check
@@ -559,7 +577,7 @@ make check
 
 Expected: syntax check succeeds.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add ansible/roles/admin_wireguard

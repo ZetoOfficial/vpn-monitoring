@@ -1,0 +1,67 @@
+global:
+  scrape_interval: {{ prometheus_scrape_interval }}
+  evaluation_interval: {{ prometheus_scrape_interval }}
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - prometheus:9090
+
+  - job_name: blackbox_external_from_monitoring
+    metrics_path: /probe
+    params:
+      module:
+        - http_2xx
+    static_configs:
+      - targets:
+          - https://cloudflare.com
+          - https://google.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox_exporter:9115
+      - target_label: probe_origin
+        replacement: monitoring
+
+  - job_name: blackbox_external_from_vpn
+    metrics_path: /probe
+    params:
+      module:
+        - http_2xx
+    static_configs:
+      - targets:
+          - https://cloudflare.com
+          - https://google.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: "{{ vpn_public_ip }}:9115"
+      - target_label: probe_origin
+        replacement: vpn
+
+{% for host in groups['vpn_exporters'] %}
+  - job_name: node_{{ host }}
+    static_configs:
+      - targets:
+          - "{{ hostvars[host].ansible_host }}:9100"
+
+  - job_name: cadvisor_{{ host }}
+    static_configs:
+      - targets:
+          - "{{ hostvars[host].ansible_host }}:8080"
+
+  - job_name: wireguard_{{ host }}
+    static_configs:
+      - targets:
+          - "{{ hostvars[host].ansible_host }}:9586"
+{% endfor %}
