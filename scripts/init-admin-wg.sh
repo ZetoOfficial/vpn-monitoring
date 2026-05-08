@@ -2,15 +2,19 @@
 set -euo pipefail
 
 # Generate wg-admin server and client key pairs plus a ready-to-import
-# client config. Reads endpoint info from ansible/inventory.yml so the
-# operator only has to fill the inventory once.
+# client config, and inject the public side of the keys directly into
+# ansible/inventory.yml so the operator never copy-pastes base64 by
+# hand.
+#
+# Idempotent: re-running with an existing .secrets/wg-admin/ keeps the
+# keys, regenerates client.conf, and re-applies the inventory injection.
 #
 # Output (all under .secrets/wg-admin/, gitignored):
-#   server.key, server.pub      paste server.key into inventory.yml as
-#                               admin_wg_private_key; server.pub is for
-#                               rotation/reference
-#   client.key, client.pub      paste client.pub into inventory.yml as
-#                               admin_wg_client_public_key
+#   server.key, server.pub      server identity (server.key goes into
+#                               inventory automatically)
+#   client.key, client.pub      client identity (client.pub goes into
+#                               inventory automatically; client.key is
+#                               embedded in client.conf)
 #   client.conf                 import into your WireGuard client app
 
 INVENTORY="${INVENTORY:-ansible/inventory.yml}"
@@ -68,15 +72,18 @@ fi
 mkdir -p "$OUT_DIR"
 chmod 700 "$OUT_DIR"
 
-if [[ -e "$OUT_DIR/server.key" || -e "$OUT_DIR/client.key" ]]; then
-  echo "Error: $OUT_DIR already contains key material. Move it aside first to avoid overwriting." >&2
-  exit 1
+if [[ -f "$OUT_DIR/server.key" && -f "$OUT_DIR/client.key" && -f "$OUT_DIR/server.pub" && -f "$OUT_DIR/client.pub" ]]; then
+  echo "Reusing existing keys in $OUT_DIR/."
+else
+  if [[ -e "$OUT_DIR/server.key" || -e "$OUT_DIR/client.key" ]]; then
+    echo "Error: $OUT_DIR has partial key material. Move it aside or delete to start clean." >&2
+    exit 1
+  fi
+  umask 077
+  wg genkey | tee "$OUT_DIR/server.key" | wg pubkey > "$OUT_DIR/server.pub"
+  wg genkey | tee "$OUT_DIR/client.key" | wg pubkey > "$OUT_DIR/client.pub"
+  echo "Generated fresh keys in $OUT_DIR/."
 fi
-
-umask 077
-
-wg genkey | tee "$OUT_DIR/server.key" | wg pubkey > "$OUT_DIR/server.pub"
-wg genkey | tee "$OUT_DIR/client.key" | wg pubkey > "$OUT_DIR/client.pub"
 
 CLIENT_ADDR="${WG_CLIENT_ALLOWED%%/*}"
 
@@ -95,17 +102,43 @@ EOF
 
 chmod 600 "$OUT_DIR"/*.key "$OUT_DIR"/client.conf
 
+# Inject server.key and client.pub into the inventory. Use '|' as the
+# sed delimiter — wg base64 keys never contain '|'. Escape '&' in the
+# replacement (it would otherwise mean "the matched text").
+inject() {
+  local field="$1" value="$2"
+  local escaped
+  escaped=$(printf '%s' "$value" | sed -e 's/[&|]/\\&/g')
+  if grep -qE "^[[:space:]]*$field:[[:space:]]" "$INVENTORY"; then
+    sed -i.bak -E "s|^([[:space:]]*$field:[[:space:]]*\").*(\".*)$|\1$escaped\2|" "$INVENTORY"
+    rm -f "${INVENTORY}.bak"
+  else
+    echo "Warning: $field not found in $INVENTORY; left as-is." >&2
+  fi
+}
+
+SERVER_KEY=$(cat "$OUT_DIR/server.key")
+CLIENT_PUB=$(cat "$OUT_DIR/client.pub")
+
+inject admin_wg_private_key "$SERVER_KEY"
+inject admin_wg_client_public_key "$CLIENT_PUB"
+
 cat <<EOF
-Generated under $OUT_DIR/:
-  server.key   -> paste into ansible/inventory.yml as admin_wg_private_key
-  client.pub   -> paste into ansible/inventory.yml as admin_wg_client_public_key
-  client.conf  -> import into your WireGuard client (macOS app, phone, etc.)
+Files in $OUT_DIR/:
+  server.key   (kept for rotation/audit)
+  server.pub   (informational)
+  client.key   (embedded in client.conf — do not lose)
+  client.pub   (informational)
+  client.conf  -> import into your WireGuard client app
 
-Helpers:
-  cat $OUT_DIR/server.key
-  cat $OUT_DIR/client.pub
+Injected into $INVENTORY:
+  admin_wg_private_key       <- server.key
+  admin_wg_client_public_key <- client.pub
 
-Keep all files in $OUT_DIR/ secret. The directory is gitignored. Move
-the keys to a password manager (1Password, Bitwarden) once you've
-configured the inventory.
+Still TODO in $INVENTORY:
+  grafana_admin_password (replace placeholder with a 12+ char password)
+
+Once inventory is complete:
+  make check
+  make deploy-monitoring
 EOF
