@@ -135,6 +135,24 @@ Alerts are evaluated by Prometheus from `monitoring/prometheus/alerts.yml` and s
 
 The MVP does **not** route alerts anywhere. They are visible only when somebody looks. Telegram or email routing through Alertmanager is a Phase 2 candidate.
 
+## Known limitation: empty WireGuard dashboard
+
+`mindflavor/prometheus-wireguard-exporter` runs with `network_mode: host` and reads kernel WireGuard state from the host's network namespace. When `wg-easy` keeps `wg0` inside its own container netns (the default for the `ghcr.io/wg-easy/wg-easy` image when started with `network_mode: bridge`), the exporter sees zero peers — `up` is `1`, the metric definitions are present, but no `wireguard_*` series ever populate.
+
+Symptoms:
+
+- The "Wireguard" Grafana dashboard renders empty.
+- `WireGuardPeerNoHandshake` alert silently never fires — looks "all clear" but is just blind.
+- `curl http://<vpn host>:9586/metrics` returns only `# HELP` / `# TYPE` lines, no data rows.
+
+Phase 2 options to fix:
+
+1. Switch to wg-easy's built-in Prometheus endpoint (newer wg-easy versions expose `/metrics` natively); requires editing the wg-easy compose and restarting it.
+2. Run the exporter with `network_mode: "container:wg-easy"` plus a host-mode sidecar that proxies port 9586 from the wg-easy netns to the host.
+3. Replace mindflavor's exporter with a wg-easy-aware one that reads the wg-easy admin API.
+
+All three are intentionally out of MVP scope because they either touch wg-easy directly or add a brittle proxy layer.
+
 ## Rollback
 
 Stop monitoring stack on `vdsina.com`:

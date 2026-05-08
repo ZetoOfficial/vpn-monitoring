@@ -220,6 +220,7 @@ Expected behavior:
 
 - Telegram or email alert routing through Alertmanager (rules already exist in MVP).
 - Custom "VPN Triage" Grafana dashboard built around the diagnostic workflow in this document.
+- Per-peer WireGuard metrics for `wg-easy` (currently blind: `mindflavor/prometheus-wireguard-exporter` with `network_mode: host` cannot see kernel state inside wg-easy's container netns). Likely path: native wg-easy Prometheus endpoint or a wg-easy-aware exporter; either path requires a wg-easy restart and is therefore out of MVP scope.
 - Loki for selected logs if 1 GB RAM is no longer a constraint or monitoring moves to a larger host.
 - HTTPS reverse proxy for Grafana, preferably still limited to admin VPN.
 - CI checks for `ansible-lint`, `yamllint`, and `docker compose config`.
