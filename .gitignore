@@ -4,3 +4,4 @@ ansible/group_vars/*/vault.yml
 *.retry
 .ansible/
 .DS_Store
+.worktrees/
