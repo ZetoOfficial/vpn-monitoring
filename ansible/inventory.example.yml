@@ -7,6 +7,7 @@ all:
     admin_wg_port: 51821
     admin_wg_address: "10.88.0.1/24"
     admin_wg_bind_ip: "10.88.0.1"
+    admin_wg_subnet: "10.88.0.0/24"
     admin_wg_client_allowed_ip: "10.88.0.2/32"
     admin_wg_private_key: "replace-with-server-private-key"
     admin_wg_client_public_key: "replace-with-client-public-key"

@@ -6,3 +6,4 @@ ansible/group_vars/*/vault.yml
 .DS_Store
 .worktrees/
 *.key
+.secrets/

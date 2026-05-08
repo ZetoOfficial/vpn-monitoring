@@ -2,30 +2,19 @@
 
 ## Local prerequisites
 
-Install Ansible (system-wide or in a venv) and the project's Ansible collections:
+Install on your local machine (this is the operator workstation, not the servers):
+
+- **Ansible** — `pipx install ansible` or `brew install ansible`.
+- **WireGuard tools** — `brew install wireguard-tools` (for `wg genkey`/`wg pubkey`).
+- **WireGuard client app** — for connecting to the admin tunnel from your laptop or phone (macOS: WireGuard from the App Store).
+
+Then install the project's Ansible collections:
 
 ```bash
-python3 -m pip install --user ansible
 make setup
 ```
 
 `make setup` is idempotent and reads `ansible/requirements.yml`.
-
-## Generate admin WireGuard keys
-
-Run on your local machine, not on the server:
-
-```bash
-wg genkey | tee wg-admin-server.key | wg pubkey > wg-admin-server.pub
-wg genkey | tee wg-admin-client.key | wg pubkey > wg-admin-client.pub
-```
-
-In `ansible/inventory.yml` set:
-
-- `admin_wg_private_key` to the contents of `wg-admin-server.key`
-- `admin_wg_client_public_key` to the contents of `wg-admin-client.pub`
-
-The `*.key` files are ignored by `.gitignore`. Keep them with your password manager or in an encrypted note.
 
 ## Configure inventory
 
@@ -34,7 +23,23 @@ cp ansible/inventory.example.yml ansible/inventory.yml
 $EDITOR ansible/inventory.yml
 ```
 
-Replace every value that contains `replace-with-`, plus the two sample IPs.
+Replace every value that contains `replace-with-` and the two sample IPs (`monitoring_public_ip`, `vpn_public_ip`). Leave `admin_wg_private_key` and `admin_wg_client_public_key` for now — the next step fills them.
+
+## Generate admin WireGuard keys and client config
+
+Run on your local machine (never on a server). With `monitoring_public_ip` and `admin_wg_*` already set in `inventory.yml`:
+
+```bash
+make wg-admin-init
+```
+
+This generates two key pairs and a ready-to-import client config under `.secrets/wg-admin/` (gitignored):
+
+- `server.key`, `server.pub` — server side. Paste `server.key` into `ansible/inventory.yml` as `admin_wg_private_key`.
+- `client.key`, `client.pub` — client side. Paste `client.pub` into `ansible/inventory.yml` as `admin_wg_client_public_key`.
+- `client.conf` — import this into your WireGuard client app (drag-and-drop in macOS, "Import from file" on phone).
+
+Move all five files into a password manager once the inventory is wired up. The script refuses to overwrite an existing `.secrets/wg-admin/` so you can't accidentally clobber working keys.
 
 ## Trust SSH host keys
 
@@ -89,11 +94,17 @@ make status
 
 ## Access Grafana
 
-Primary access is through the admin WireGuard tunnel. Connect your client to `wg-admin` and open:
+Primary access is through the admin WireGuard tunnel.
+
+1. Import `.secrets/wg-admin/client.conf` into your WireGuard client (the file already contains the right `Endpoint`, `AllowedIPs`, and keys).
+2. Activate the tunnel.
+3. Open Grafana:
 
 ```text
 http://10.88.0.1:3000
 ```
+
+The Grafana login user/password are whatever you set in the inventory under `grafana_admin_user`/`grafana_admin_password`.
 
 Fallback SSH tunnel if the admin VPN is unreachable:
 

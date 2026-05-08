@@ -2,10 +2,13 @@ ANSIBLE_DIR := ansible
 INVENTORY := $(ANSIBLE_DIR)/inventory.yml
 DASHBOARD_DIR := monitoring/grafana/dashboards
 
-.PHONY: setup ping deploy-monitoring deploy-exporters deploy-all status check download-dashboards
+.PHONY: setup wg-admin-init ping deploy-monitoring deploy-exporters deploy-all status check download-dashboards
 
 setup:
 	cd $(ANSIBLE_DIR) && ansible-galaxy collection install -r requirements.yml -p .ansible/collections
+
+wg-admin-init:
+	@INVENTORY=$(INVENTORY) scripts/init-admin-wg.sh
 
 ping:
 	cd $(ANSIBLE_DIR) && ansible all -i inventory.yml -m ping
