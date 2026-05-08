@@ -498,6 +498,7 @@ This role only manages the `wg-admin` interface on the monitoring host. UFW rule
 
 **Files:**
 - Create: `ansible/roles/admin_wireguard/tasks/main.yml`
+- Create: `ansible/roles/admin_wireguard/handlers/main.yml`
 - Create: `ansible/roles/admin_wireguard/templates/wg-admin.conf.j2`
 
 - [ ] **Step 1: Create `ansible/roles/admin_wireguard/templates/wg-admin.conf.j2`**
@@ -514,6 +515,8 @@ AllowedIPs = {{ admin_wg_client_allowed_ip }}
 ```
 
 - [ ] **Step 2: Create `ansible/roles/admin_wireguard/tasks/main.yml`**
+
+Handlers live in `handlers/main.yml`, not at the bottom of `tasks/main.yml` — Ansible parses tasks files as a flat task list.
 
 ```yaml
 ---
@@ -543,15 +546,19 @@ AllowedIPs = {{ admin_wg_client_allowed_ip }}
     name: "wg-quick@{{ admin_wg_interface }}"
     enabled: true
     state: started
-
-handlers:
-  - name: Restart admin WireGuard
-    ansible.builtin.service:
-      name: "wg-quick@{{ admin_wg_interface }}"
-      state: restarted
 ```
 
-- [ ] **Step 3: Run syntax check**
+- [ ] **Step 3: Create `ansible/roles/admin_wireguard/handlers/main.yml`**
+
+```yaml
+---
+- name: Restart admin WireGuard
+  ansible.builtin.service:
+    name: "wg-quick@{{ admin_wg_interface }}"
+    state: restarted
+```
+
+- [ ] **Step 4: Run syntax check**
 
 ```bash
 make check
@@ -559,7 +566,7 @@ make check
 
 Expected: syntax check succeeds.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add ansible/roles/admin_wireguard

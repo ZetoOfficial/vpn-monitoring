@@ -25,9 +25,3 @@
     name: "wg-quick@{{ admin_wg_interface }}"
     enabled: true
     state: started
-
-handlers:
-  - name: Restart admin WireGuard
-    ansible.builtin.service:
-      name: "wg-quick@{{ admin_wg_interface }}"
-      state: restarted
