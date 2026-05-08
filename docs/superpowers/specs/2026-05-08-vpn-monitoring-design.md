@@ -5,7 +5,7 @@
 There are two current VPS hosts:
 
 - `vdsina.com`: currently an old 1 GB WireGuard VPS. It will become the monitoring host over time.
-- `vdsina.2g.com`: the primary VPN host running `wg-easy` in Docker.
+- `vdsina.2gb.com`: the primary VPN host running `wg-easy` in Docker.
 
 The main operational problem is that the primary VPN sometimes becomes slow or stops loading sites. During those incidents, the monitoring setup should help identify whether the cause is VPS resource pressure, provider/network issues, WireGuard peer problems, Docker/wg-easy issues, or a client-side problem.
 
@@ -14,7 +14,7 @@ The project should also provide a repeatable way to deploy the setup in a few lo
 ## Goals
 
 - Run Grafana and Prometheus on `vdsina.com` as a separate monitoring host.
-- Run lightweight exporters on `vdsina.2g.com`.
+- Run lightweight exporters on `vdsina.2gb.com`.
 - Deploy everything through Ansible and Docker Compose.
 - Keep deployment reproducible from this repository.
 - Avoid CI/CD for the first version; deploy locally through `make` commands.
@@ -45,7 +45,7 @@ vdsina.com
     - blackbox_exporter
     - admin WireGuard
 
-vdsina.2g.com
+vdsina.2gb.com
   role: vpn_exporter_host
   existing:
     - wg-easy
@@ -56,7 +56,7 @@ vdsina.2g.com
     - blackbox_exporter
 ```
 
-Prometheus on `vdsina.com` scrapes exporters on `vdsina.2g.com` by public static IPv4. Firewall rules on `vdsina.2g.com` allow `node_exporter`, `cadvisor`, `wireguard_exporter`, and `blackbox_exporter` ports only from the public IPv4 of `vdsina.com`.
+Prometheus on `vdsina.com` scrapes exporters on `vdsina.2gb.com` by public static IPv4. Firewall rules on `vdsina.2gb.com` allow `node_exporter`, `cadvisor`, `wireguard_exporter`, and `blackbox_exporter` ports only from the public IPv4 of `vdsina.com`.
 
 ## Access Model
 
@@ -72,7 +72,7 @@ vdsina.com
   Prometheus private/local-only access
 ```
 
-This admin VPN must be separate from the primary user VPN on `vdsina.2g.com`. If the primary VPN is degraded or down, the admin VPN should still allow access to Grafana.
+This admin VPN must be separate from the primary user VPN on `vdsina.2gb.com`. If the primary VPN is degraded or down, the admin VPN should still allow access to Grafana.
 
 SSH tunnel remains the emergency fallback:
 
@@ -102,7 +102,7 @@ Initial Prometheus settings:
 - scrape interval: 30 seconds
 - no Loki/log ingestion
 
-### On `vdsina.2g.com`
+### On `vdsina.2gb.com`
 
 - `node_exporter`: CPU, memory, disk, load, uptime, network throughput, drops/errors.
 - `wireguard_exporter`: peer handshakes and traffic counters.
@@ -113,7 +113,7 @@ Initial Prometheus settings:
 
 For the MVP, Grafana ships with three community dashboards committed as JSON in `monitoring/grafana/dashboards/` and provisioned automatically through `monitoring/grafana/provisioning/`:
 
-- Node Exporter Full (grafana.com ID `1860`) — VPS health for `vdsina.2g.com`.
+- Node Exporter Full (grafana.com ID `1860`) — VPS health for `vdsina.2gb.com`.
 - cAdvisor (grafana.com ID `14282`) — Docker container CPU, memory, restarts for `wg-easy` and exporters.
 - WireGuard (grafana.com ID `12177`) — peers, handshakes, RX/TX.
 
@@ -140,8 +140,8 @@ Notification routing through Alertmanager (Telegram, email) is a Phase 2 candida
 When the VPN is slow or unavailable:
 
 1. Open Grafana through the admin VPN on `vdsina.com`.
-2. Compare external connectivity probes from `vdsina.com` and from `vdsina.2g.com`. Divergence isolates the problem to one provider's uplink.
-3. Check `vdsina.2g.com` CPU, RAM, load, disk, network drops, and errors.
+2. Compare external connectivity probes from `vdsina.com` and from `vdsina.2gb.com`. Divergence isolates the problem to one provider's uplink.
+3. Check `vdsina.2gb.com` CPU, RAM, load, disk, network drops, and errors.
 4. Check Docker and `wg-easy` container health.
 5. Check WireGuard peers: latest handshake, active clients, and per-peer traffic.
 6. If server metrics and external probes are healthy, treat the issue as likely client-side or client-provider-side.
@@ -203,7 +203,7 @@ Expected behavior:
 - `make setup`: install Ansible collections required by the playbooks (one-time, idempotent; reads `ansible/requirements.yml`).
 - `make ping`: verify SSH/Ansible connectivity.
 - `make deploy-monitoring`: configure `vdsina.com` and start the monitoring stack.
-- `make deploy-exporters`: configure `vdsina.2g.com` and start exporters.
+- `make deploy-exporters`: configure `vdsina.2gb.com` and start exporters.
 - `make deploy-all`: run both deployment paths.
 - `make status`: check remote container state and key endpoints.
 
@@ -211,7 +211,7 @@ Expected behavior:
 
 - Do not commit real server IPs if the inventory is considered private.
 - Do not commit Grafana admin passwords, WireGuard private keys, API tokens, or vault files.
-- Exporter ports on `vdsina.2g.com` must be restricted to `vdsina.com`.
+- Exporter ports on `vdsina.2gb.com` must be restricted to `vdsina.com`.
 - Grafana should not be publicly exposed in the MVP.
 - Prometheus should not be publicly exposed.
 - Admin VPN credentials should be treated as sensitive and rotated if leaked.

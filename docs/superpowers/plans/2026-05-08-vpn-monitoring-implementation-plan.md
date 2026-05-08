@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a reproducible Ansible + Docker Compose deployment for VPN monitoring, with `vdsina.com` as the monitoring host and `vdsina.2g.com` as the primary VPN exporter host. Grafana ships pre-provisioned with three community dashboards and Prometheus evaluates a baseline of alert rules locally.
+**Goal:** Build a reproducible Ansible + Docker Compose deployment for VPN monitoring, with `vdsina.com` as the monitoring host and `vdsina.2gb.com` as the primary VPN exporter host. Grafana ships pre-provisioned with three community dashboards and Prometheus evaluates a baseline of alert rules locally.
 
 **Architecture:** Ansible over SSH installs Docker from the official Docker repo, configures UFW first (so the SSH connection survives), brings up `wg-admin` on the monitoring host, then renders Docker Compose projects for the monitoring stack and the exporters. Static monitoring artifacts (alerts, dashboards, datasource provisioning, blackbox config) live under `monitoring/` in the repo and are copied to the target hosts as-is; per-host config (Prometheus scrape targets, Compose with templated paths) lives in role templates.
 
@@ -19,8 +19,8 @@ The current state matters and changes the rollout order:
 - The firewall must keep the legacy WireGuard UDP port open until those clients are intentionally migrated away.
 - Admin access for Grafana uses a new WireGuard interface, `wg-admin`, on a new UDP port, `51821`.
 - Monitoring files live under `/opt/monitoring`, exporter files under `/opt/vpn-exporters`. Neither path overlaps with `/root/wgdashboard`.
-- `vdsina.2g.com` already runs `wg-easy`; exporter deployment must not touch or restart the existing `wg-easy` compose project.
-- Firewall changes are additive and source-IP scoped: exporter and probe ports on `vdsina.2g.com` are only reachable from `vdsina.com`'s public IPv4.
+- `vdsina.2gb.com` already runs `wg-easy`; exporter deployment must not touch or restart the existing `wg-easy` compose project.
+- Firewall changes are additive and source-IP scoped: exporter and probe ports on `vdsina.2gb.com` are only reachable from `vdsina.com`'s public IPv4.
 - UFW is enabled by the `firewall` role **before** any other role on either host. SSH must be in the allow list before UFW is enabled, otherwise the first deployment will sever its own SSH session on `vdsina.com`.
 
 ## File Structure
@@ -1139,7 +1139,7 @@ Replace every value that contains `replace-with-`, plus the two sample IPs.
 Avoid an interactive prompt during the first deploy by adding host keys up front:
 
 ```bash
-ssh-keyscan -H <vdsina.com IP> <vdsina.2g.com IP> >> ~/.ssh/known_hosts
+ssh-keyscan -H <vdsina.com IP> <vdsina.2gb.com IP> >> ~/.ssh/known_hosts
 ```
 
 ## Preflight before first deployment
@@ -1160,7 +1160,7 @@ Confirm:
 - TCP `3000` is not bound by another host process.
 - There is enough free memory for Prometheus and Grafana.
 
-On `vdsina.2g.com`:
+On `vdsina.2gb.com`:
 
 ```bash
 wg show
@@ -1206,7 +1206,7 @@ The bundled Grafana dashboards are downloaded by `make download-dashboards` and 
 
 | File | grafana.com ID | Revision | Purpose |
 | --- | --- | --- | --- |
-| `node-exporter-full.json` | 1860 | 37 | VPS health on `vdsina.2g.com` |
+| `node-exporter-full.json` | 1860 | 37 | VPS health on `vdsina.2gb.com` |
 | `cadvisor.json` | 14282 | 1 | Docker container CPU, memory, restarts |
 | `wireguard.json` | 12177 | 1 | WireGuard peers, handshakes, RX/TX |
 
@@ -1229,7 +1229,7 @@ Stop monitoring stack on `vdsina.com`:
 cd /opt/monitoring && docker compose down
 ```
 
-Stop exporters on `vdsina.2g.com`:
+Stop exporters on `vdsina.2gb.com`:
 
 ```bash
 cd /opt/vpn-exporters && docker compose down
@@ -1301,7 +1301,7 @@ Edit `ansible/inventory.yml`:
 
 ```yaml
 monitoring_public_ip: "<real vdsina.com public IPv4>"
-vpn_public_ip: "<real vdsina.2g.com public IPv4>"
+vpn_public_ip: "<real vdsina.2gb.com public IPv4>"
 admin_wg_private_key: "<contents of wg-admin-server.key>"
 admin_wg_client_public_key: "<contents of wg-admin-client.pub>"
 grafana_admin_password: "<strong local password, 12+ chars>"

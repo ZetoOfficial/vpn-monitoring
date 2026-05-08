@@ -46,7 +46,7 @@ Move all five files into a password manager once the inventory is wired up. The 
 Avoid an interactive prompt during the first deploy by adding host keys up front:
 
 ```bash
-ssh-keyscan -H <vdsina.com IP> <vdsina.2g.com IP> >> ~/.ssh/known_hosts
+ssh-keyscan -H <vdsina.com IP> <vdsina.2gb.com IP> >> ~/.ssh/known_hosts
 ```
 
 ## Preflight before first deployment
@@ -67,7 +67,7 @@ Confirm:
 - TCP `3000` is not bound by another host process.
 - There is enough free memory for Prometheus and Grafana.
 
-On `vdsina.2g.com`:
+On `vdsina.2gb.com`:
 
 ```bash
 wg show
@@ -120,7 +120,7 @@ The bundled Grafana dashboards are downloaded by `make download-dashboards` and 
 
 | File | grafana.com ID | Revision | Purpose |
 | --- | --- | --- | --- |
-| `node-exporter-full.json` | 1860 | 37 | VPS health on `vdsina.2g.com` |
+| `node-exporter-full.json` | 1860 | 37 | VPS health on `vdsina.2gb.com` |
 | `cadvisor.json` | 14282 | 1 | Docker container CPU, memory, restarts |
 | `wireguard.json` | 12177 | 1 | WireGuard peers, handshakes, RX/TX |
 
@@ -143,7 +143,7 @@ Stop monitoring stack on `vdsina.com`:
 cd /opt/monitoring && docker compose down
 ```
 
-Stop exporters on `vdsina.2g.com`:
+Stop exporters on `vdsina.2gb.com`:
 
 ```bash
 cd /opt/vpn-exporters && docker compose down
