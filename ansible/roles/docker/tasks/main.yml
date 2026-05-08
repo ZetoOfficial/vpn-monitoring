@@ -38,8 +38,9 @@
   ignore_errors: "{{ ansible_check_mode }}"
 
 - name: Ensure Docker service is enabled and running
-  ansible.builtin.service:
+  ansible.builtin.systemd:
     name: docker
     state: started
     enabled: true
+    daemon_reload: true
   ignore_errors: "{{ ansible_check_mode }}"

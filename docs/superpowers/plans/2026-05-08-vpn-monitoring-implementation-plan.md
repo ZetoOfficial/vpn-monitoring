@@ -364,11 +364,14 @@ This installs Docker CE and the Compose plugin from `download.docker.com`. The D
     state: present
 
 - name: Ensure Docker service is enabled and running
-  ansible.builtin.service:
+  ansible.builtin.systemd:
     name: docker
     state: started
     enabled: true
+    daemon_reload: true
 ```
+
+`ansible.builtin.systemd` (not `service`) is required for `daemon_reload: true`. Without the reload, fresh installs hit a race where dpkg drops new docker.service/docker.socket unit files but systemd is still holding the old socket fd; docker.service then fails with `failed to load listeners: no sockets found via socket activation`.
 
 - [ ] **Step 4: Run syntax check**
 
