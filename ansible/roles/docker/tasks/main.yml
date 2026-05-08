@@ -2,9 +2,9 @@
 - name: Assert distribution is supported
   ansible.builtin.assert:
     that:
-      - ansible_distribution | lower in ["debian", "ubuntu"]
-      - ansible_architecture in ["x86_64", "aarch64"]
-    fail_msg: "docker role supports Debian/Ubuntu on x86_64/aarch64 only; got {{ ansible_distribution }}/{{ ansible_architecture }}."
+      - ansible_facts.distribution | lower in ["debian", "ubuntu"]
+      - ansible_facts.architecture in ["x86_64", "aarch64"]
+    fail_msg: "docker role supports Debian/Ubuntu on x86_64/aarch64 only; got {{ ansible_facts.distribution }}/{{ ansible_facts.architecture }}."
 
 - name: Ensure /etc/apt/keyrings exists
   ansible.builtin.file:
@@ -12,21 +12,16 @@
     state: directory
     mode: "0755"
 
-- name: Detect distribution codename
-  ansible.builtin.command: lsb_release -cs
-  register: lsb_codename
-  changed_when: false
-
 - name: Install Docker apt key
   ansible.builtin.get_url:
-    url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+    url: "https://download.docker.com/linux/{{ ansible_facts.distribution | lower }}/gpg"
     dest: /etc/apt/keyrings/docker.asc
     mode: "0644"
     force: false
 
 - name: Add Docker apt repository
   ansible.builtin.apt_repository:
-    repo: "deb [arch={{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_architecture] }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ lsb_codename.stdout }} stable"
+    repo: "deb [arch={{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts.architecture] }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_facts.distribution | lower }} {{ ansible_facts.distribution_release }} stable"
     filename: docker
     state: present
     update_cache: true
@@ -40,9 +35,11 @@
       - docker-buildx-plugin
       - docker-compose-plugin
     state: present
+  ignore_errors: "{{ ansible_check_mode }}"
 
 - name: Ensure Docker service is enabled and running
   ansible.builtin.service:
     name: docker
     state: started
     enabled: true
+  ignore_errors: "{{ ansible_check_mode }}"

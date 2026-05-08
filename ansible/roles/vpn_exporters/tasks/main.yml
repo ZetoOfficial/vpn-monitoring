@@ -38,3 +38,4 @@
     chdir: "{{ exporters_base_dir }}"
   register: exporters_compose
   changed_when: "'Started' in exporters_compose.stdout or 'Created' in exporters_compose.stdout or 'Recreated' in exporters_compose.stdout"
+  ignore_errors: "{{ ansible_check_mode }}"

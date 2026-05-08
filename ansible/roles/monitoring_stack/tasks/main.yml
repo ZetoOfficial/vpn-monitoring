@@ -75,3 +75,4 @@
     chdir: "{{ monitoring_base_dir }}"
   register: monitoring_compose
   changed_when: "'Started' in monitoring_compose.stdout or 'Created' in monitoring_compose.stdout or 'Recreated' in monitoring_compose.stdout"
+  ignore_errors: "{{ ansible_check_mode }}"
