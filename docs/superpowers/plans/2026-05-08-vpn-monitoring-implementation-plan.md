@@ -96,7 +96,7 @@ roles_path = roles
 collections_path = .ansible/collections
 host_key_checking = True
 retry_files_enabled = False
-stdout_callback = yaml
+callback_result_format = yaml
 
 [ssh_connection]
 pipelining = True
