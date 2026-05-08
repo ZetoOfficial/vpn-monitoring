@@ -139,7 +139,7 @@ all:
     prometheus_scrape_interval: 30s
     monitoring_base_dir: /opt/monitoring
     exporters_base_dir: /opt/vpn-exporters
-    monitoring_repo_dir: "{{ playbook_dir }}/../monitoring"
+    monitoring_repo_dir: "{{ playbook_dir }}/../../monitoring"
 
   children:
     monitoring:
@@ -874,7 +874,7 @@ scrape_configs:
 
 - [ ] **Step 3: Create `ansible/roles/monitoring_stack/tasks/main.yml`**
 
-The role reads from `monitoring_repo_dir` (set in inventory to `{{ playbook_dir }}/../monitoring`) and copies the static tree to the host. The `command` task that runs `docker compose up -d` registers its output and uses `changed_when` so re-runs without changes are reported as `ok`, not `changed`.
+The role reads from `monitoring_repo_dir` (set in inventory to `{{ playbook_dir }}/../../monitoring` — playbooks live two levels deep at `ansible/playbooks/`, so the relative path needs both `..` segments to land on `monitoring/` at the repo root) and copies the static tree to the host. The `command` task that runs `docker compose up -d` registers its output and uses `changed_when` so re-runs without changes are reported as `ok`, not `changed`.
 
 ```yaml
 ---

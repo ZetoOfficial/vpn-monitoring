@@ -22,7 +22,7 @@ all:
     prometheus_scrape_interval: 30s
     monitoring_base_dir: /opt/monitoring
     exporters_base_dir: /opt/vpn-exporters
-    monitoring_repo_dir: "{{ playbook_dir }}/../monitoring"
+    monitoring_repo_dir: "{{ playbook_dir }}/../../monitoring"
 
   children:
     monitoring:
