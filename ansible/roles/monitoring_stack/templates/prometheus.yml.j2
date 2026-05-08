@@ -58,7 +58,7 @@ scrape_configs:
   - job_name: cadvisor_{{ host }}
     static_configs:
       - targets:
-          - "{{ hostvars[host].ansible_host }}:8080"
+          - "{{ hostvars[host].ansible_host }}:{{ cadvisor_port }}"
 
   - job_name: wireguard_{{ host }}
     static_configs:

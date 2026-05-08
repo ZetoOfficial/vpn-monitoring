@@ -16,7 +16,7 @@
   community.general.ufw:
     rule: allow
     from_ip: "{{ monitoring_public_ip }}"
-    port: "8080"
+    port: "{{ cadvisor_port }}"
     proto: tcp
 
 - name: Allow wireguard_exporter from monitoring host
@@ -39,6 +39,13 @@
     port: "{{ item }}"
     proto: udp
   loop: "{{ vpn_wg_udp_ports | default([]) }}"
+
+- name: Keep existing public TCP ports open
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ existing_public_tcp_ports | default([]) }}"
 
 - name: Enable UFW on exporter host
   community.general.ufw:

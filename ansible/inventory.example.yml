@@ -14,7 +14,8 @@ all:
     legacy_wg_udp_ports:
       - "54651"
     vpn_wg_udp_ports:
-      - "51820"
+      - "51820"  # the actual UDP port wg-easy listens on (not always 51820 — verify with `docker ps` / `docker exec wg-easy wg show`)
+    cadvisor_port: 8081  # 8080 is a common conflict; bump if needed
     grafana_admin_user: admin
     grafana_admin_password: "replace-with-local-secret"
     prometheus_retention: 15d
@@ -35,3 +36,9 @@ all:
         vdsina_2g:
           ansible_host: "203.0.113.20"
           wireguard_interface: wg0
+          # Per-host list of additional TCP ports to keep open on the public
+          # interface after UFW is enabled. Add any service that is currently
+          # accessible from the internet and should stay that way (e.g. an
+          # admin UI, an unrelated service co-tenanted on this host). Leave
+          # empty if nothing else needs public TCP access.
+          existing_public_tcp_ports: []
