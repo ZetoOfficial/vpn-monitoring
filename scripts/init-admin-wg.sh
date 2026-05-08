@@ -33,11 +33,19 @@ if [[ ! -f "$INVENTORY" ]]; then
 fi
 
 read_var() {
-  awk -F'"' -v key="$1:" '$1 ~ "^[[:space:]]*"key"$" {print $2; exit}' "$INVENTORY"
+  awk -F'"' -v key="$1:" '$1 ~ "^[[:space:]]*"key"[[:space:]]*$" {print $2; exit}' "$INVENTORY"
 }
 
 read_unquoted() {
-  awk -v key="$1:" '$1 == key {print $2; exit}' "$INVENTORY"
+  awk -v key="$1:" '{
+    sub(/^[[:space:]]+/, "", $0)
+    if (index($0, key) == 1) {
+      val = substr($0, length(key) + 1)
+      sub(/^[[:space:]]+/, "", val)
+      print val
+      exit
+    }
+  }' "$INVENTORY"
 }
 
 MON_IP=$(read_var monitoring_public_ip)
