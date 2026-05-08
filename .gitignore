@@ -1,0 +1,6 @@
+ansible/inventory.yml
+ansible/group_vars/*/vault.yml
+.env
+*.retry
+.ansible/
+.DS_Store
