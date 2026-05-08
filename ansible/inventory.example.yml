@@ -30,6 +30,11 @@ all:
       hosts:
         vdsina_monitoring:
           ansible_host: "203.0.113.10"
+          # Per-host list of additional public TCP ports to keep accessible
+          # after UFW is enabled. Add anything that is currently reachable
+          # from the internet and should stay that way (admin UIs,
+          # co-tenanted services, proxies). Empty = no extras.
+          existing_public_tcp_ports: []
 
     vpn_exporters:
       hosts:
