@@ -33,6 +33,13 @@
     port: "9115"
     proto: tcp
 
+- name: Keep existing wg-easy UDP ports open
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: udp
+  loop: "{{ vpn_wg_udp_ports | default([]) }}"
+
 - name: Enable UFW on exporter host
   community.general.ufw:
     state: enabled

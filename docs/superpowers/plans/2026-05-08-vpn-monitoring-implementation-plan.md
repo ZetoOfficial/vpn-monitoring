@@ -130,6 +130,8 @@ all:
     admin_wg_client_public_key: "replace-with-client-public-key"
     legacy_wg_udp_ports:
       - "54651"
+    vpn_wg_udp_ports:
+      - "51820"
     grafana_admin_user: admin
     grafana_admin_password: "replace-with-local-secret"
     prometheus_retention: 15d
@@ -472,10 +474,19 @@ Exporter ports (`9100` node, `8080` cadvisor, `9586` wireguard, `9115` blackbox)
     port: "9115"
     proto: tcp
 
+- name: Keep existing wg-easy UDP ports open
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: udp
+  loop: "{{ vpn_wg_udp_ports | default([]) }}"
+
 - name: Enable UFW on exporter host
   community.general.ufw:
     state: enabled
 ```
+
+The `vpn_wg_udp_ports` loop mirrors the `legacy_wg_udp_ports` pattern on the monitoring host. Without it, enabling UFW would silently sever every active wg-easy peer the moment this role completes.
 
 - [ ] **Step 4: Run syntax check**
 

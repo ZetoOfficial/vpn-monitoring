@@ -74,7 +74,8 @@ Confirm:
 
 - Existing `wg-easy` is running.
 - Exporter ports `9100`, `8080`, `9586`, and `9115` are free.
-- `wireguard_interface` in inventory matches the real WireGuard interface.
+- `wireguard_interface` in inventory matches the **host-side** interface name from `wg show` on the host (not from inside the wg-easy container) — `wireguard_exporter` runs with `network_mode: host` and reads it from there.
+- `vpn_wg_udp_ports` in inventory lists every UDP port wg-easy currently listens on. Read it from `ss -lupn | grep wg`. The default `51820` is wg-easy's out-of-the-box port; if you changed it, update the inventory before the first `make deploy-exporters` or UFW will sever your active peers.
 
 ## First deployment
 
@@ -119,7 +120,7 @@ To bump a dashboard revision, change the revision number in the `Makefile`'s `do
 Alerts are evaluated by Prometheus from `monitoring/prometheus/alerts.yml` and surface in two places:
 
 - Prometheus UI at `http://127.0.0.1:9090/alerts` (via SSH tunnel).
-- A Grafana Alert List panel pointed at the `Prometheus` datasource.
+- Optionally, a Grafana Alert List panel that you add manually after first login: pick any dashboard → "Add panel" → visualization "Alert list" → datasource `Prometheus`. The MVP does not provision this panel.
 
 The MVP does **not** route alerts anywhere. They are visible only when somebody looks. Telegram or email routing through Alertmanager is a Phase 2 candidate.
 
