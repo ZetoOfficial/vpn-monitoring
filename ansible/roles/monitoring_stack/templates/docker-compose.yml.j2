@@ -24,6 +24,10 @@ services:
       GF_SECURITY_ADMIN_USER: "{{ grafana_admin_user }}"
       GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
       GF_SERVER_HTTP_ADDR: "0.0.0.0"
+      # Bundled WireGuard dashboard (grafana.com 12177) still ships with
+      # Angular panels. Until we replace it with a React-only dashboard,
+      # keep Angular support on so the panels render.
+      GF_PLUGIN_ANGULAR_SUPPORT_ENABLED: "true"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
