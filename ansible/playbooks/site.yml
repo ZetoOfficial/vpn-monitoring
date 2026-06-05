@@ -1,2 +1,14 @@
 ---
-- import_playbook: monitoring.yml
+- name: AmneziaWG appliance + observability (single host)
+  hosts: awg_servers
+  become: true
+  roles:
+    - common
+    - amneziawg        # installs AWG, sets awg_port; must precede firewall
+    - firewall         # opens SSH + awg_port UDP
+    - awg_clients      # reconciles declared permanent peers
+    - node_exporter
+    - awg_peer_exporter
+    - amneziawg_exporter
+    - docker           # runtime for the observability stack
+    - monitoring_stack # docker-compose Prometheus + Grafana (host network)

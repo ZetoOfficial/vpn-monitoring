@@ -9,17 +9,17 @@
     name:
       - ca-certificates
       - curl
+      - wget
       - gnupg
       - lsb-release
+      - git
+      - jq
+      - unzip
+      - tar
+      - python3
+      - python3-venv
+      - python3-pip
+      - qrencode        # manage_amneziawg.sh generates client QR codes
+      - moreutils       # sponge — atomic textfile-collector writes
       - ufw
-      - wireguard-tools
     state: present
-
-- name: Create monitoring base directory when configured
-  ansible.builtin.file:
-    path: "{{ monitoring_base_dir }}"
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-  when: monitoring_base_dir is defined and 'monitoring' in group_names

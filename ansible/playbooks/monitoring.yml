@@ -1,9 +1,0 @@
----
-- name: Deploy monitoring host
-  hosts: monitoring
-  become: true
-  roles:
-    - common
-    - docker
-    - firewall
-    - monitoring_stack

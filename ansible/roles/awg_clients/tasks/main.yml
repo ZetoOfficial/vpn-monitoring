@@ -1,0 +1,22 @@
+---
+# Declarative reconcile of PERMANENT peers. `--json` keeps stdout pure JSON
+# (logs go to stderr). `add` is idempotent server-side, but we diff first so
+# Ansible reports `changed` accurately and skips a needless config apply.
+- name: List current AmneziaWG peers (JSON)
+  ansible.builtin.command: "bash {{ awg_manage_script }} --no-color --json list"
+  register: _awg_list
+  changed_when: false
+
+- name: Collect existing peer names
+  ansible.builtin.set_fact:
+    _awg_existing_peers: "{{ (_awg_list.stdout | from_json) | map(attribute='name') | list }}"
+
+- name: Add missing permanent peers
+  ansible.builtin.command: "bash {{ awg_manage_script }} --no-color --yes add {{ item.name }}"
+  loop: "{{ awg_clients | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.name not in _awg_existing_peers
+  register: _awg_add
+  changed_when: _awg_add.rc == 0
+  no_log: true

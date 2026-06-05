@@ -2,15 +2,15 @@ global:
   scrape_interval: {{ prometheus_scrape_interval }}
   evaluation_interval: {{ prometheus_scrape_interval }}
 
-# TODO(awg): add alert rule_files once AmneziaWG alerts are written.
-
 scrape_configs:
   - job_name: prometheus
     static_configs:
-      - targets:
-          - prometheus:9090
+      - targets: ["127.0.0.1:9090"]
 
-  # TODO(awg): scrape AmneziaWG appliance exporters (node_exporter:9100,
-  # amneziawg_exporter:9351, awg_peer_exporter via textfile collector).
-  # Define an `awg_servers` inventory group and loop over it here, or have
-  # the appliances push via Grafana Alloy remote_write instead of pull.
+  - job_name: node
+    static_configs:
+      - targets: ["{{ node_exporter_listen_ip }}:{{ node_exporter_port }}"]
+
+  - job_name: amneziawg
+    static_configs:
+      - targets: ["{{ amneziawg_exporter_listen_ip }}:{{ amneziawg_exporter_port }}"]

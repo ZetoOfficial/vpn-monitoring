@@ -1,0 +1,66 @@
+---
+# --- Redis (DAU/MAU persistence), localhost only ---
+- name: Install Redis
+  ansible.builtin.apt:
+    name: redis-server
+    state: present
+
+- name: Bind Redis to localhost
+  ansible.builtin.lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^bind '
+    line: "bind {{ redis_bind_ip }} -::1"
+  notify: Restart redis
+
+- name: Enable and start Redis
+  ansible.builtin.systemd:
+    name: redis-server
+    state: started
+    enabled: true
+
+# --- amnezia-vpn/amneziawg-exporter (native, http mode) ---
+- name: Clone amneziawg-exporter
+  ansible.builtin.git:
+    repo: "{{ amneziawg_exporter_repo }}"
+    dest: "{{ amneziawg_exporter_dir }}"
+    version: "{{ amneziawg_exporter_version }}"
+  notify: Restart amneziawg-exporter
+
+- name: Check for exporter requirements.txt
+  ansible.builtin.stat:
+    path: "{{ amneziawg_exporter_dir }}/requirements.txt"
+  register: _awg_exp_reqs
+
+- name: Create venv and install exporter requirements
+  ansible.builtin.pip:
+    requirements: "{{ amneziawg_exporter_dir }}/requirements.txt"
+    virtualenv: "{{ amneziawg_exporter_dir }}/venv"
+    virtualenv_command: python3 -m venv
+  when: _awg_exp_reqs.stat.exists
+  notify: Restart amneziawg-exporter
+
+- name: Install fallback deps when no requirements.txt
+  ansible.builtin.pip:
+    name:
+      - prometheus_client
+      - redis
+    virtualenv: "{{ amneziawg_exporter_dir }}/venv"
+    virtualenv_command: python3 -m venv
+  when: not _awg_exp_reqs.stat.exists
+  notify: Restart amneziawg-exporter
+
+- name: Install amneziawg-exporter systemd unit
+  ansible.builtin.template:
+    src: amneziawg-exporter.service.j2
+    dest: /etc/systemd/system/amneziawg-exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart amneziawg-exporter
+
+- name: Enable and start amneziawg-exporter
+  ansible.builtin.systemd:
+    name: amneziawg-exporter
+    state: started
+    enabled: true
+    daemon_reload: true

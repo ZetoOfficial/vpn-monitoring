@@ -1,4 +1,35 @@
 ---
-- name: Configure monitoring host firewall
-  ansible.builtin.include_tasks: monitoring_host.yml
-  when: "'monitoring' in group_names"
+# Single-host appliance firewall. Everything in the observability stack binds to
+# 127.0.0.1, so only SSH and the AmneziaWG UDP port are exposed publicly.
+- name: Allow SSH
+  community.general.ufw:
+    rule: allow
+    port: "{{ awg_ssh_port | default(22) }}"
+    proto: tcp
+
+- name: Allow AmneziaWG UDP port
+  community.general.ufw:
+    rule: allow
+    port: "{{ awg_port }}"
+    proto: udp
+
+- name: Keep existing public TCP ports open
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ existing_public_tcp_ports | default([]) }}"
+
+- name: Set default incoming policy to deny
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Set default outgoing policy to allow
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled

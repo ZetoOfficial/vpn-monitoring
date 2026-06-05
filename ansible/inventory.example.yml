@@ -2,13 +2,59 @@ all:
   vars:
     ansible_user: root
 
-    # Where to bind the Grafana port. The wg-admin tunnel is gone; until a new
-    # access path is designed (UFW source-IP, SSH tunnel, or Alloy push),
-    # Grafana binds to localhost and you reach it via `ssh -L 3000:127.0.0.1:3000`.
-    grafana_bind_ip: "127.0.0.1"
+    # ----------------------------------------------------------------------
+    # AmneziaWG server (installed via bivlked/amneziawg-installer)
+    # ----------------------------------------------------------------------
+    awg_installer_version: "v5.15.3"
+    awg_interface: "awg0"
+    awg_dir: "/root/awg"
+    awg_manage_script: "{{ awg_dir }}/manage_amneziawg.sh"
+    awg_server_conf: "/etc/amnezia/amneziawg/awg0.conf"
+
+    # We drive the installer non-interactively with these flags, so awg_port is
+    # authoritative (the firewall role opens exactly this UDP port).
+    awg_port: 51820
+    awg_tunnel_subnet: "10.9.9.1/24"
+    awg_route_mode: "amnezia"        # all | amnezia | custom
+    awg_route_custom_nets: ""        # used only when awg_route_mode == custom
+    awg_disable_ipv6: true
+    awg_preset: "default"            # default | mobile
+    awg_ssh_port: 22
+    awg_installer_extra_args: ""     # escape hatch for extra installer flags
+
+    # Permanent peers — reconciled by the awg_clients role (created if missing,
+    # never recreated/removed). Guests/temporary peers are added by hand via
+    # manage_amneziawg.sh and must NOT be listed here.
+    awg_clients:
+      - { name: "gl_router_home", purpose: "GL.iNet Beryl 7 home router" }
+      - { name: "macbook_pavel", purpose: "roaming laptop" }
+      - { name: "iphone_pavel", purpose: "roaming phone" }
+
+    # ----------------------------------------------------------------------
+    # Native exporters (all bind to localhost)
+    # ----------------------------------------------------------------------
+    node_exporter_version: "1.8.2"
+    node_exporter_listen_ip: "127.0.0.1"
+    node_exporter_port: 9100
+    node_exporter_textfile_dir: "/var/lib/node_exporter/textfile_collector"
+
+    awg_peer_exporter_interval: 60          # seconds between textfile refreshes
+    awg_peer_exporter_endpoint_label: true  # off for high-cardinality roaming sets
+
+    # amnezia-vpn/amneziawg-exporter (native, http mode) + Redis for DAU/MAU
+    amneziawg_exporter_version: "main"      # TODO: pin to a release tag/commit
+    amneziawg_exporter_listen_ip: "127.0.0.1"
+    amneziawg_exporter_port: 9351
+    amneziawg_exporter_scrape_interval: 60
+    amneziawg_exporter_label_server: "awg-vps"
+    redis_bind_ip: "127.0.0.1"
+    redis_port: 6379
+
+    # ----------------------------------------------------------------------
+    # Observability stack (docker-compose, host network)
+    # ----------------------------------------------------------------------
     grafana_admin_user: admin
     grafana_admin_password: "replace-with-local-secret"
-
     prometheus_retention: 15d
     prometheus_retention_size: 2GB
     prometheus_scrape_interval: 30s
@@ -16,16 +62,10 @@ all:
     monitoring_repo_dir: "{{ playbook_dir }}/../../monitoring"
 
   children:
-    monitoring:
-      hosts:
-        vdsina_monitoring:
-          ansible_host: "203.0.113.10"
-          # Per-host list of additional public TCP ports to keep accessible
-          # after UFW is enabled. Empty = no extras.
-          existing_public_tcp_ports: []
-
-    # TODO(awg): AmneziaWG appliance hosts. The native AWG roles
-    # (amneziawg, node_exporter, amneziawg_exporter, awg_peer_exporter,
-    # backups) will target this group once they are written.
     awg_servers:
-      hosts: {}
+      hosts:
+        awg1:
+          ansible_host: "203.0.113.20"
+          # Per-host extra public TCP ports to keep open after UFW is enabled
+          # (admin UIs, co-tenanted services). Empty = SSH + AWG UDP only.
+          existing_public_tcp_ports: []

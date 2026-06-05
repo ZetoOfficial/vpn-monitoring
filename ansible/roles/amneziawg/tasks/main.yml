@@ -1,0 +1,76 @@
+---
+# Installs AmneziaWG via the pinned bivlked installer, driven non-interactively.
+# The installer may require ONE reboot (kernel module / DKMS) on a fresh host; it
+# tracks progress in /root/awg/setup_state and resumes on re-run, so we run it,
+# tolerate a reboot, wait for the host, then run again. The `creates:` guard makes
+# the second run a no-op when the first completed without rebooting.
+#
+# NOTE: the reboot path needs validation on a real fresh VPS (see plan open items).
+
+- name: Build AmneziaWG installer flags
+  ansible.builtin.set_fact:
+    _awg_installer_flags: >-
+      --yes
+      --port={{ awg_port }}
+      --subnet={{ awg_tunnel_subnet }}
+      {{ '--disallow-ipv6' if awg_disable_ipv6 else '--allow-ipv6' }}
+      {% if awg_route_mode == 'all' %}--route-all
+      {% elif awg_route_mode == 'custom' %}--route-custom={{ awg_route_custom_nets }}
+      {% else %}--route-amnezia
+      {% endif %}
+      --preset={{ awg_preset }}
+      --ssh-port={{ awg_ssh_port }}
+      {{ awg_installer_extra_args }}
+
+- name: Download pinned AmneziaWG installer
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/bivlked/amneziawg-installer/{{ awg_installer_version }}/install_amneziawg_en.sh"
+    dest: /root/install_amneziawg_en.sh
+    mode: "0700"
+
+- name: Run AmneziaWG installer (first pass; may trigger a reboot)
+  ansible.builtin.command:
+    cmd: "bash /root/install_amneziawg_en.sh {{ _awg_installer_flags }}"
+    creates: "{{ awg_manage_script }}"
+  register: _awg_install
+  changed_when: _awg_install.rc == 0
+  # A reboot mid-install drops the connection as "unreachable" (which
+  # ignore_errors does NOT catch); tolerate both, then reconnect and resume.
+  ignore_errors: true
+  ignore_unreachable: true
+
+- name: Wait for the host to come back (in case the installer rebooted)
+  ansible.builtin.wait_for_connection:
+    delay: 10
+    timeout: 600
+
+- name: Run AmneziaWG installer (resume after reboot if needed)
+  ansible.builtin.command:
+    cmd: "bash /root/install_amneziawg_en.sh {{ _awg_installer_flags }}"
+    creates: "{{ awg_manage_script }}"
+  register: _awg_install2
+  changed_when: _awg_install2.rc == 0
+
+- name: Check the manage script is present
+  ansible.builtin.stat:
+    path: "{{ awg_manage_script }}"
+  register: _awg_manage_stat
+
+- name: Assert AmneziaWG install completed
+  ansible.builtin.assert:
+    that:
+      - _awg_manage_stat.stat.exists
+    fail_msg: >-
+      AmneziaWG install incomplete: {{ awg_manage_script }} is missing.
+      Inspect {{ awg_dir }}/install_amneziawg.log on the host.
+
+- name: Health-check — interface is up
+  ansible.builtin.command: "awg show {{ awg_interface }}"
+  register: _awg_show
+  changed_when: false
+
+- name: Health-check — manage script reports OK
+  ansible.builtin.command: "bash {{ awg_manage_script }} --no-color check"
+  register: _awg_check
+  changed_when: false
+  failed_when: _awg_check.rc != 0

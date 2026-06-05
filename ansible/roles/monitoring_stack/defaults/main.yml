@@ -1,0 +1,15 @@
+---
+monitoring_base_dir: /opt/monitoring
+monitoring_repo_dir: "{{ playbook_dir }}/../../monitoring"
+
+grafana_bind_ip: "127.0.0.1"
+grafana_admin_user: admin
+prometheus_retention: 15d
+prometheus_retention_size: 2GB
+prometheus_scrape_interval: 30s
+
+# Local scrape targets (exporters bind to localhost; Prometheus uses host net).
+node_exporter_listen_ip: "127.0.0.1"
+node_exporter_port: 9100
+amneziawg_exporter_listen_ip: "127.0.0.1"
+amneziawg_exporter_port: 9351

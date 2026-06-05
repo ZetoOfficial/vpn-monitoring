@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Managed by Ansible (role: awg_peer_exporter). Emits per-peer AmneziaWG metrics
+# into the node_exporter textfile collector. Data source: manage_amneziawg.sh
+# `stats --json` (name-mapped rx/tx/handshake); endpoint metadata from
+# `awg show <iface> dump` when enabled.
+set -euo pipefail
+
+MANAGE="{{ awg_manage_script }}"
+IFACE="{{ awg_interface }}"
+SERVER_CONF="{{ awg_server_conf }}"
+OUT="{{ node_exporter_textfile_dir }}/awg_peers.prom"
+ENDPOINT_LABEL="{{ 'yes' if awg_peer_exporter_endpoint_label else 'no' }}"
+
+now=$(date +%s)
+tmp=$(mktemp)
+
+stats=$(bash "$MANAGE" --no-color --json stats 2>/dev/null || echo '[]')
+
+{
+  echo "# HELP awg_peer_online 1 if peer handshake age < 180s"
+  echo "# TYPE awg_peer_online gauge"
+  echo "# HELP awg_peer_latest_handshake_timestamp_seconds Last handshake unix time"
+  echo "# TYPE awg_peer_latest_handshake_timestamp_seconds gauge"
+  echo "# HELP awg_peer_handshake_age_seconds Seconds since last handshake"
+  echo "# TYPE awg_peer_handshake_age_seconds gauge"
+  echo "# HELP awg_peer_rx_bytes_total Received bytes from peer"
+  echo "# TYPE awg_peer_rx_bytes_total counter"
+  echo "# HELP awg_peer_tx_bytes_total Sent bytes to peer"
+  echo "# TYPE awg_peer_tx_bytes_total counter"
+
+  echo "$stats" | jq -r --argjson now "$now" '
+    .[] |
+    .name as $n |
+    ((.last_handshake // 0) | tonumber) as $hs |
+    ($now - $hs) as $age |
+    "awg_peer_latest_handshake_timestamp_seconds{peer=\"\($n)\"} \($hs)",
+    (if $hs > 0 then "awg_peer_handshake_age_seconds{peer=\"\($n)\"} \($age)" else empty end),
+    "awg_peer_online{peer=\"\($n)\"} \(if ($hs > 0 and $age < 180) then 1 else 0 end)",
+    "awg_peer_rx_bytes_total{peer=\"\($n)\"} \(.rx // 0)",
+    "awg_peer_tx_bytes_total{peer=\"\($n)\"} \(.tx // 0)"
+  '
+
+  if [[ "$ENDPOINT_LABEL" == "yes" ]]; then
+    echo "# HELP awg_peer_info Peer endpoint / allowed-ips metadata"
+    echo "# TYPE awg_peer_info gauge"
+    declare -A pk2name
+    _name=""
+    while IFS= read -r line; do
+      case "$line" in
+        "#_Name = "*) _name="${line#\#_Name = }"; _name="${_name%% }" ;;
+        "PublicKey = "*) _pk="${line#PublicKey = }"; _pk="${_pk%% }"; [[ -n "$_name" ]] && pk2name["$_pk"]="$_name"; _name="" ;;
+      esac
+    done < "$SERVER_CONF"
+
+    # dump columns: pubkey psk endpoint allowed-ips handshake rx tx keepalive
+    while IFS=$'\t' read -r pk _psk ep aips _hs _rx _tx _ka; do
+      n="${pk2name[$pk]:-}"
+      [[ -z "$n" ]] && continue
+      [[ "$ep" == "(none)" ]] && ep=""
+      echo "awg_peer_info{peer=\"$n\",endpoint=\"$ep\",allowed_ips=\"$aips\"} 1"
+    done < <(awg show "$IFACE" dump 2>/dev/null | tail -n +2)
+  fi
+} > "$tmp"
+
+mv "$tmp" "$OUT"
+chmod 644 "$OUT"

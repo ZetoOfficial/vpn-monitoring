@@ -1,0 +1,8 @@
+[Unit]
+Description=AmneziaWG per-peer textfile exporter
+After=network-online.target awg-quick@{{ awg_interface }}.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/awg-peer-exporter

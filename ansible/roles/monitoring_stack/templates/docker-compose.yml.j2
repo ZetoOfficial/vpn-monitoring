@@ -3,36 +3,34 @@ services:
     image: prom/prometheus:v2.55.1
     container_name: prometheus
     restart: unless-stopped
+    # host network so Prometheus can scrape the native exporters on 127.0.0.1.
+    network_mode: host
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time={{ prometheus_retention }}
       - --storage.tsdb.retention.size={{ prometheus_retention_size }}
+      - --web.listen-address=127.0.0.1:9090
       - --web.enable-lifecycle
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
-    ports:
-      - "127.0.0.1:9090:9090"
 
   grafana:
     image: grafana/grafana:11.3.1
     container_name: grafana
     restart: unless-stopped
+    network_mode: host
     environment:
       GF_SECURITY_ADMIN_USER: "{{ grafana_admin_user }}"
       GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
-      GF_SERVER_HTTP_ADDR: "0.0.0.0"
-      # Bundled WireGuard dashboard (grafana.com 12177) still ships with
-      # Angular panels. Until we replace it with a React-only dashboard,
-      # keep Angular support on so the panels render.
-      GF_PLUGIN_ANGULAR_SUPPORT_ENABLED: "true"
+      # Bind to localhost; reach it via `ssh -L 3000:127.0.0.1:3000`.
+      GF_SERVER_HTTP_ADDR: "{{ grafana_bind_ip }}"
+      GF_SERVER_HTTP_PORT: "3000"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/etc/grafana/dashboards:ro
-    ports:
-      - "{{ grafana_bind_ip }}:3000:3000"
 
 volumes:
   prometheus-data:

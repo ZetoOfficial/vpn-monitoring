@@ -1,0 +1,11 @@
+---
+- name: Restart redis
+  ansible.builtin.systemd:
+    name: redis-server
+    state: restarted
+
+- name: Restart amneziawg-exporter
+  ansible.builtin.systemd:
+    name: amneziawg-exporter
+    state: restarted
+    daemon_reload: true

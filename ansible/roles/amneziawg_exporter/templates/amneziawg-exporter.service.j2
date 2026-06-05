@@ -1,0 +1,25 @@
+[Unit]
+Description=AmneziaWG Exporter
+After=network-online.target redis-server.service awg-quick@{{ awg_interface }}.service
+Wants=network-online.target
+Requires=redis-server.service
+
+[Service]
+Type=simple
+# Runs as root: `awg show all dump` needs access to the wg interface.
+User=root
+Environment=AWG_EXPORTER_OPS_MODE=http
+Environment=AWG_EXPORTER_LISTEN_ADDR={{ amneziawg_exporter_listen_ip }}
+Environment=AWG_EXPORTER_HTTP_PORT={{ amneziawg_exporter_port }}
+Environment=AWG_EXPORTER_SCRAPE_INTERVAL={{ amneziawg_exporter_scrape_interval }}
+Environment=AWG_EXPORTER_AWG_SHOW_EXEC=awg show all dump
+Environment=AWG_EXPORTER_REDIS_HOST={{ redis_bind_ip }}
+Environment=AWG_EXPORTER_REDIS_PORT={{ redis_port }}
+Environment=AWG_EXPORTER_REDIS_DB=0
+Environment=AWG_EXPORTER_EXTRA_LABEL_SERVER={{ amneziawg_exporter_label_server }}
+ExecStart={{ amneziawg_exporter_dir }}/venv/bin/python {{ amneziawg_exporter_dir }}/exporter.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

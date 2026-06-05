@@ -1,0 +1,10 @@
+[Unit]
+Description=Run awg-peer-exporter every {{ awg_peer_exporter_interval }}s
+
+[Timer]
+OnBootSec=30
+OnUnitActiveSec={{ awg_peer_exporter_interval }}
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

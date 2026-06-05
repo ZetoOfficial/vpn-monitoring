@@ -1,0 +1,35 @@
+---
+- name: Install awg-peer-exporter script
+  ansible.builtin.template:
+    src: awg-peer-exporter.sh.j2
+    dest: /usr/local/bin/awg-peer-exporter
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install awg-peer-exporter service unit
+  ansible.builtin.template:
+    src: awg-peer-exporter.service.j2
+    dest: /etc/systemd/system/awg-peer-exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install awg-peer-exporter timer unit
+  ansible.builtin.template:
+    src: awg-peer-exporter.timer.j2
+    dest: /etc/systemd/system/awg-peer-exporter.timer
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Enable and start awg-peer-exporter timer
+  ansible.builtin.systemd:
+    name: awg-peer-exporter.timer
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Prime metrics once so the textfile exists immediately
+  ansible.builtin.command: /usr/local/bin/awg-peer-exporter
+  changed_when: false

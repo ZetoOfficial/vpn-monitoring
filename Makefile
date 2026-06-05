@@ -1,7 +1,7 @@
 ANSIBLE_DIR := ansible
 INVENTORY := $(ANSIBLE_DIR)/inventory.yml
 
-.PHONY: setup ping deploy-monitoring deploy-all status check
+.PHONY: setup ping deploy status check
 
 setup:
 	cd $(ANSIBLE_DIR) && ansible-galaxy collection install -r requirements.yml -p .ansible/collections
@@ -9,10 +9,7 @@ setup:
 ping:
 	cd $(ANSIBLE_DIR) && ansible all -i inventory.yml -m ping
 
-deploy-monitoring:
-	cd $(ANSIBLE_DIR) && ansible-playbook -i inventory.yml playbooks/monitoring.yml
-
-deploy-all:
+deploy:
 	cd $(ANSIBLE_DIR) && ansible-playbook -i inventory.yml playbooks/site.yml
 
 status:
