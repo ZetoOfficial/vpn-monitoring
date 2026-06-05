@@ -64,9 +64,11 @@ the observability stack is publicly reachable.
 
 - `node_exporter` exposes host metrics (CPU/RAM/disk/net/load) and reads the
   textfile collector directory.
-- `awg_peer_exporter` runs on a systemd timer (30–60s), reads
-  `awg show awg0 dump` (or `manage_amneziawg.sh stats --json` — see §10),
-  and writes Prometheus metrics **atomically** into the textfile collector dir.
+- `awg_peer_exporter` runs on a systemd timer (30–60s) and reads
+  `manage_amneziawg.sh stats --json` → `[{name, ip, rx, tx, last_handshake,
+  status}]` (name-mapped, stdout is pure JSON in `--json` mode). For the
+  optional endpoint label it supplements with `awg show awg0 dump`. It writes
+  Prometheus metrics **atomically** into the textfile collector dir.
 - `amneziawg-exporter` reads `awg show all dump`, uses Redis for online/DAU/MAU
   state, exposes `127.0.0.1:9351`.
 - `prometheus` (host network) scrapes `127.0.0.1:9100` and `127.0.0.1:9351`,
@@ -120,12 +122,18 @@ Guests/temporary peers are NOT in inventory — added ad-hoc via the script.
 
 ## 7. Client model
 
-`awg_clients` role:
-1. `manage_amneziawg.sh list --json` → current peers.
-2. For each declared permanent peer not present → `add <name>`.
-3. Never recreate or remove existing peers.
-4. `no_log: true` on tasks touching `.conf`/`.png`/`.vpnuri`/keys.
-5. Generated artifacts are never committed; fetch on demand only if requested.
+`awg_clients` role (CLI confirmed against v5.15.3):
+1. `manage_amneziawg.sh list --json` → current peers (`[{name, ip,
+   client_ipv6, status}]`).
+2. For each declared permanent peer not present → `add <name>`. `add` is itself
+   idempotent (existing peer → skip, rc=0), but we diff first so Ansible reports
+   `changed` accurately and avoids needless `apply_config`.
+3. Never recreate or remove existing peers. (Removal would use `remove <name>
+   --yes`; not done by this role.)
+4. `add` requires the kernel module loaded; the `amneziawg` role guarantees that
+   before this role runs.
+5. `no_log: true` on tasks touching `.conf`/`.png`/`.vpnuri`/keys.
+6. Generated artifacts are never committed; fetch on demand only if requested.
 
 Leaked config remediation = remove the peer server-side. One config per device.
 
@@ -161,15 +169,24 @@ Documented limitations (NOT solved here — by design):
 
 ## 10. Assumptions / risks to validate first in implementation
 
-1. **`manage_amneziawg.sh` interface.** The brief assumes `list --json`, `add`,
-   `add --expires`, `remove`, `stats --json`, `check`, `backup`. Verify these
-   subcommands exist in bivlked/amneziawg-installer v5.15.3. If `--json`/`stats`
-   are absent, `awg_clients` and `awg_peer_exporter` fall back to parsing
-   `awg show awg0 dump` directly.
+1. ~~`manage_amneziawg.sh` interface.~~ **RESOLVED** against v5.15.3 (script
+   reviewed). Confirmed: `list --json`, `stats --json`, `add [--expires=]
+   [--psk]`, `remove [--yes]`, `check`/`status`, `backup`, `restore [file]`,
+   `regen`, `modify`, `diagnose`. `--json` emits pure JSON on stdout (logs →
+   stderr). `add` is idempotent. Non-interactive confirms auto-yes; pass `--yes`
+   anyway for `remove`. Fixed paths: `AWG_DIR=/root/awg`, server conf
+   `/etc/amnezia/amneziawg/awg0.conf`, port in `/root/awg/awgsetup_cfg.init`
+   (`AWG_PORT`) — the `firewall` role reads the AWG UDP port from there (or
+   `ListenPort` in the server conf).
 2. **Exact amneziawg-exporter project.** Identify the project behind the
    `AWG_EXPORTER_*` env vars and its native install method (binary/Python).
+   (Only remaining real unknown.)
 3. **node_exporter**: native (not containerized) so it has host access and the
    textfile collector lives beside it.
+
+> Bonus from the script review: `backup`/`restore` are already built in (tar.gz,
+> 10-rotation, tar validation + rollback). The future backups/restore spec
+> becomes a thin wrapper around `manage_amneziawg.sh backup|restore`.
 
 ## 11. Out of scope (future specs)
 
