@@ -23,12 +23,3 @@
     group: root
     mode: "0755"
   when: monitoring_base_dir is defined and 'monitoring' in group_names
-
-- name: Create exporters base directory when configured
-  ansible.builtin.file:
-    path: "{{ exporters_base_dir }}"
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-  when: exporters_base_dir is defined and 'vpn_exporters' in group_names

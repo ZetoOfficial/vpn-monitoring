@@ -1,28 +1,18 @@
 all:
   vars:
     ansible_user: root
-    monitoring_public_ip: "203.0.113.10"
-    vpn_public_ip: "203.0.113.20"
-    admin_wg_interface: wg-admin
-    admin_wg_port: 51821
-    admin_wg_address: "10.88.0.1/24"
-    admin_wg_bind_ip: "10.88.0.1"
-    admin_wg_subnet: "10.88.0.0/24"
-    admin_wg_client_allowed_ip: "10.88.0.2/32"
-    admin_wg_private_key: "replace-with-server-private-key"
-    admin_wg_client_public_key: "replace-with-client-public-key"
-    legacy_wg_udp_ports:
-      - "54651"
-    vpn_wg_udp_ports:
-      - "51820"  # the actual UDP port wg-easy listens on (not always 51820 — verify with `docker ps` / `docker exec wg-easy wg show`)
-    cadvisor_port: 8081  # 8080 is a common conflict; bump if needed
+
+    # Where to bind the Grafana port. The wg-admin tunnel is gone; until a new
+    # access path is designed (UFW source-IP, SSH tunnel, or Alloy push),
+    # Grafana binds to localhost and you reach it via `ssh -L 3000:127.0.0.1:3000`.
+    grafana_bind_ip: "127.0.0.1"
     grafana_admin_user: admin
     grafana_admin_password: "replace-with-local-secret"
+
     prometheus_retention: 15d
     prometheus_retention_size: 2GB
     prometheus_scrape_interval: 30s
     monitoring_base_dir: /opt/monitoring
-    exporters_base_dir: /opt/vpn-exporters
     monitoring_repo_dir: "{{ playbook_dir }}/../../monitoring"
 
   children:
@@ -31,19 +21,11 @@ all:
         vdsina_monitoring:
           ansible_host: "203.0.113.10"
           # Per-host list of additional public TCP ports to keep accessible
-          # after UFW is enabled. Add anything that is currently reachable
-          # from the internet and should stay that way (admin UIs,
-          # co-tenanted services, proxies). Empty = no extras.
+          # after UFW is enabled. Empty = no extras.
           existing_public_tcp_ports: []
 
-    vpn_exporters:
-      hosts:
-        vdsina_2g:
-          ansible_host: "203.0.113.20"
-          wireguard_interface: wg0
-          # Per-host list of additional TCP ports to keep open on the public
-          # interface after UFW is enabled. Add any service that is currently
-          # accessible from the internet and should stay that way (e.g. an
-          # admin UI, an unrelated service co-tenanted on this host). Leave
-          # empty if nothing else needs public TCP access.
-          existing_public_tcp_ports: []
+    # TODO(awg): AmneziaWG appliance hosts. The native AWG roles
+    # (amneziawg, node_exporter, amneziawg_exporter, awg_peer_exporter,
+    # backups) will target this group once they are written.
+    awg_servers:
+      hosts: {}

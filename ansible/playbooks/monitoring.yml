@@ -6,5 +6,4 @@
     - common
     - docker
     - firewall
-    - admin_wireguard
     - monitoring_stack

@@ -2,7 +2,3 @@
 - name: Configure monitoring host firewall
   ansible.builtin.include_tasks: monitoring_host.yml
   when: "'monitoring' in group_names"
-
-- name: Configure exporter host firewall
-  ansible.builtin.include_tasks: exporter_host.yml
-  when: "'vpn_exporters' in group_names"

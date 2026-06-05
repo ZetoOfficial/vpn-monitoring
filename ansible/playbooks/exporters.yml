@@ -1,9 +1,0 @@
----
-- name: Deploy VPN exporters
-  hosts: vpn_exporters
-  become: true
-  roles:
-    - common
-    - docker
-    - firewall
-    - vpn_exporters
