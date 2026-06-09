@@ -12,7 +12,10 @@ Environment=AWG_EXPORTER_OPS_MODE=http
 Environment=AWG_EXPORTER_LISTEN_ADDR={{ amneziawg_exporter_listen_ip }}
 Environment=AWG_EXPORTER_HTTP_PORT={{ amneziawg_exporter_port }}
 Environment=AWG_EXPORTER_SCRAPE_INTERVAL={{ amneziawg_exporter_scrape_interval }}
-Environment=AWG_EXPORTER_AWG_SHOW_EXEC=awg show all dump
+# Quoted: systemd splits unquoted Environment values on spaces, which would
+# truncate this to "awg" (then `awg` == human-readable `awg show`, breaking the
+# exporter's dump parser).
+Environment="AWG_EXPORTER_AWG_SHOW_EXEC=awg show all dump"
 Environment=AWG_EXPORTER_REDIS_HOST={{ redis_bind_ip }}
 Environment=AWG_EXPORTER_REDIS_PORT={{ redis_port }}
 Environment=AWG_EXPORTER_REDIS_DB=0
