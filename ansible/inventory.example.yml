@@ -29,8 +29,11 @@ all:
     # Permanent peers — reconciled by the awg_clients role (created if missing,
     # never recreated/removed). Guests/temporary peers are added by hand via
     # manage_amneziawg.sh and must NOT be listed here.
+    # tunnel_ping: true → server ICMP-probes this peer's tunnel IP for direct
+    # RTT/loss. Enable only for peers that answer ping (routers/servers); phones
+    # usually don't reply and would show false 100% loss.
     awg_clients:
-      - { name: "gl_router_home", purpose: "GL.iNet Beryl 7 home router" }
+      - { name: "gl_router_home", purpose: "GL.iNet Beryl 7 home router", tunnel_ping: true }
       - { name: "macbook_pavel", purpose: "roaming laptop" }
       - { name: "iphone_pavel", purpose: "roaming phone" }
 

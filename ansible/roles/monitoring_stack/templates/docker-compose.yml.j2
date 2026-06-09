@@ -13,8 +13,10 @@ services:
       - --web.listen-address=127.0.0.1:9090
       - --web.enable-lifecycle
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      # Mount the directory (not single files): Ansible replaces config files via
+      # atomic rename, which breaks single-file bind mounts (container keeps the
+      # old inode). A dir mount makes new files visible, so /-/reload works.
+      - ./prometheus:/etc/prometheus:ro
       - prometheus-data:/prometheus
 
   grafana:
@@ -42,10 +44,10 @@ services:
     cap_add:
       - NET_RAW          # required for ICMP probes
     command:
-      - --config.file=/etc/blackbox_exporter/config.yml
+      - --config.file=/etc/blackbox_exporter/blackbox.yml
       - --web.listen-address=127.0.0.1:{{ blackbox_port }}
     volumes:
-      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+      - ./blackbox:/etc/blackbox_exporter:ro
 {% endif %}
 
 volumes:

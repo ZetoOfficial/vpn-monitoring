@@ -1,0 +1,16 @@
+---
+- name: Reload Prometheus
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:9090/-/reload"
+    method: POST
+    status_code: [200, 204]
+  retries: 5
+  delay: 3
+  register: _prom_reload
+  until: _prom_reload is succeeded
+
+- name: Restart blackbox
+  ansible.builtin.command:
+    cmd: docker compose restart blackbox_exporter
+    chdir: "{{ monitoring_base_dir }}"
+  changed_when: true

@@ -24,3 +24,5 @@ blackbox_icmp_targets:
 blackbox_http_targets:
   - "https://www.google.com"
   - "https://cloudflare.com"
+# Per-peer tunnel ICMP targets [{name, ip}], populated by the awg_clients role.
+awg_peer_targets: []

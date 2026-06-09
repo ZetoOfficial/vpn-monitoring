@@ -11,6 +11,17 @@
   ansible.builtin.set_fact:
     _awg_existing_peers: "{{ (_awg_list.stdout | from_json) | map(attribute='name') | list }}"
 
+- name: Build tunnel-ping target list (declared peers with tunnel_ping + a tunnel IP)
+  ansible.builtin.set_fact:
+    awg_peer_targets: >-
+      {{ (_awg_list.stdout | from_json)
+         | selectattr('name', 'in', awg_clients | selectattr('tunnel_ping', 'defined')
+                                                 | selectattr('tunnel_ping')
+                                                 | map(attribute='name') | list)
+         | selectattr('ip', 'defined')
+         | rejectattr('ip', 'equalto', '')
+         | list }}
+
 - name: Add missing permanent peers
   ansible.builtin.command: "bash {{ awg_manage_script }} --no-color --yes add {{ item.name }}"
   loop: "{{ awg_clients | default([]) }}"
