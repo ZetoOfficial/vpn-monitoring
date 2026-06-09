@@ -23,10 +23,11 @@
   vars:
     _setup: "{{ _awg_setup_raw.content | b64decode }}"
   ansible.builtin.set_fact:
-    _awg_actual_port: "{{ _setup | regex_search('AWG_PORT=([0-9]+)', '\\1') }}"
-    _awg_actual_subnet: "{{ _setup | regex_search(\"AWG_TUNNEL_SUBNET='([^']+)'\", '\\1') }}"
-    _awg_actual_ipv6: "{{ _setup | regex_search('DISABLE_IPV6=([0-9]+)', '\\1') }}"
-    _awg_actual_preset: "{{ _setup | regex_search(\"AWG_PRESET='([^']+)'\", '\\1') }}"
+    # regex_search with a group ref returns a LIST of groups -> take first.
+    _awg_actual_port: "{{ (_setup | regex_search('AWG_PORT=([0-9]+)', '\\1')) | first }}"
+    _awg_actual_subnet: "{{ (_setup | regex_search(\"AWG_TUNNEL_SUBNET='([^']+)'\", '\\1')) | first }}"
+    _awg_actual_ipv6: "{{ (_setup | regex_search('DISABLE_IPV6=([0-9]+)', '\\1')) | first }}"
+    _awg_actual_preset: "{{ (_setup | regex_search(\"AWG_PRESET='([^']+)'\", '\\1')) | first }}"
 
 - name: Assert install-time settings match inventory (fail loudly on drift)
   ansible.builtin.assert:
