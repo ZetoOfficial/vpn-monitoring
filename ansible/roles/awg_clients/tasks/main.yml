@@ -31,3 +31,27 @@
   register: _awg_add
   changed_when: _awg_add.rc == 0
   no_log: true
+
+# Make awg_endpoint declarative: bring each declared client's Endpoint to
+# <awg_endpoint>:<awg_port>, regenerating only the ones that differ. Idempotent —
+# a re-run with an unchanged endpoint makes no changes.
+- name: Ensure declared clients use the configured endpoint
+  ansible.builtin.shell: |
+    set -e
+    conf="{{ awg_dir }}/{{ item.name }}.conf"
+    [ -f "$conf" ] || exit 0
+    want="Endpoint = {{ awg_endpoint }}:{{ awg_port }}"
+    cur="$(grep '^Endpoint' "$conf" 2>/dev/null || true)"
+    if [ "$cur" != "$want" ]; then
+      bash {{ awg_manage_script }} --no-color modify "{{ item.name }}" Endpoint "{{ awg_endpoint }}:{{ awg_port }}" >/dev/null 2>&1
+      echo CHANGED
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ awg_clients | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: awg_endpoint | default('') | length > 0
+  register: _awg_ensure_ep
+  changed_when: "'CHANGED' in (_awg_ensure_ep.stdout | default(''))"
+  no_log: true

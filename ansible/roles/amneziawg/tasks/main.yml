@@ -59,3 +59,14 @@
   register: _awg_check
   changed_when: false
   failed_when: _awg_check.rc != 0
+
+# The installer only sets the endpoint on first install (behind the creates
+# guard). Keep AWG_ENDPOINT in sync on every run so NEW clients pick up the
+# configured endpoint even if awg_endpoint changed after install. (Existing
+# clients are reconciled by the awg_clients role.)
+- name: Keep AWG_ENDPOINT in sync with awg_endpoint
+  ansible.builtin.lineinfile:
+    path: "{{ awg_dir }}/awgsetup_cfg.init"
+    regexp: '^export AWG_ENDPOINT='
+    line: "export AWG_ENDPOINT='{{ awg_endpoint }}'"
+  when: awg_endpoint | default('') | length > 0
