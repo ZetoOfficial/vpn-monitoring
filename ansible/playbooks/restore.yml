@@ -1,0 +1,20 @@
+---
+# Bring a fresh OR existing host up from an encrypted backup (migration / DR).
+# Installs AmneziaWG (so the module/unit/scripts exist), restores keys+configs
+# from the backup (same server key → clients reconnect), then brings up
+# observability. awg_clients is intentionally NOT run — peers come from the backup.
+- name: Restore AmneziaWG host from backup
+  hosts: awg_servers
+  become: true
+  vars:
+    _awg_restore_plain: "/tmp/awg-restore-{{ inventory_hostname }}.tar.gz"
+  roles:
+    - common
+    - amneziawg
+    - firewall
+    - restore
+    - node_exporter
+    - awg_peer_exporter
+    - amneziawg_exporter
+    - docker
+    - monitoring_stack

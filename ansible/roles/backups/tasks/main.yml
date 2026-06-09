@@ -1,0 +1,67 @@
+---
+- name: Assert age recipient is configured
+  ansible.builtin.assert:
+    that:
+      - backup_age_recipient | length > 0
+    fail_msg: >-
+      Set backup_age_recipient (age public key) in inventory.
+      Generate one with: age-keygen -o ~/.config/awg-backup/age.key
+
+- name: Ensure age is installed
+  ansible.builtin.apt:
+    name: age
+    state: present
+    update_cache: true
+
+- name: Create AmneziaWG backup
+  ansible.builtin.command: "bash {{ awg_manage_script }} --no-color --yes backup"
+  register: _awg_backup
+  changed_when: true
+
+- name: Find newest backup archive
+  ansible.builtin.shell: "set -o pipefail; ls -1t {{ awg_dir }}/backups/awg_backup_*.tar.gz | head -1"
+  args:
+    executable: /bin/bash
+  register: _awg_newest_backup
+  changed_when: false
+
+- name: Encrypt backup with age (host has no private key)
+  ansible.builtin.command: "age -r {{ backup_age_recipient }} -o {{ _awg_newest_backup.stdout }}.age {{ _awg_newest_backup.stdout }}"
+  changed_when: true
+
+- name: Ensure local backup directory exists
+  ansible.builtin.file:
+    path: "{{ backup_local_dir }}/{{ inventory_hostname }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+
+- name: Fetch encrypted backup to the control machine
+  ansible.builtin.fetch:
+    src: "{{ _awg_newest_backup.stdout }}.age"
+    dest: "{{ backup_local_dir }}/{{ inventory_hostname }}/"
+    flat: true
+
+- name: Ensure textfile collector directory exists
+  ansible.builtin.file:
+    path: "{{ node_exporter_textfile_dir }}"
+    state: directory
+    mode: "0775"
+
+- name: Write backup status metric
+  ansible.builtin.copy:
+    dest: "{{ node_exporter_textfile_dir }}/awg_backup.prom"
+    mode: "0644"
+    content: |
+      # HELP awg_backup_last_success_timestamp_seconds Unix time of last successful backup
+      # TYPE awg_backup_last_success_timestamp_seconds gauge
+      awg_backup_last_success_timestamp_seconds {{ ansible_date_time.epoch }}
+      # HELP awg_backup_last_status 1 if the last backup succeeded
+      # TYPE awg_backup_last_status gauge
+      awg_backup_last_status 1
+
+- name: Remove host-side encrypted copy (already fetched)
+  ansible.builtin.file:
+    path: "{{ _awg_newest_backup.stdout }}.age"
+    state: absent

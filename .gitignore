@@ -8,3 +8,4 @@ ansible/group_vars/*/vault.yml
 *.key
 .secrets/
 ansible/inventory-*.yml
+/backups/

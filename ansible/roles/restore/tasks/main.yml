@@ -1,0 +1,55 @@
+---
+- name: Assert backup_file is provided
+  ansible.builtin.assert:
+    that:
+      - backup_file | length > 0
+    fail_msg: "Pass -e backup_file=<path to a .age archive> (see `make restore BACKUP=...`)."
+
+- name: Check the encrypted backup exists locally
+  ansible.builtin.stat:
+    path: "{{ backup_file }}"
+  delegate_to: localhost
+  become: false
+  register: _awg_bf
+
+- name: Assert the backup file exists
+  ansible.builtin.assert:
+    that:
+      - _awg_bf.stat.exists
+    fail_msg: "Backup file not found: {{ backup_file }}"
+
+- name: Decrypt backup on the control machine
+  ansible.builtin.command: >-
+    age -d -i {{ backup_age_identity | expanduser }}
+    -o {{ _awg_restore_plain }} {{ backup_file }}
+  delegate_to: localhost
+  become: false
+  changed_when: true
+
+- name: Upload decrypted backup to the host
+  ansible.builtin.copy:
+    src: "{{ _awg_restore_plain }}"
+    dest: "{{ awg_dir }}/backups/awg_restore_upload.tar.gz"
+    mode: "0600"
+
+- name: Restore from backup
+  ansible.builtin.command: "bash {{ awg_manage_script }} --no-color --yes restore {{ awg_dir }}/backups/awg_restore_upload.tar.gz"
+  register: _awg_restore
+  changed_when: true
+
+- name: Health-check — interface up after restore
+  ansible.builtin.command: "awg show {{ awg_interface }}"
+  register: _awg_restore_show
+  changed_when: false
+
+- name: Remove uploaded plaintext on the host
+  ansible.builtin.file:
+    path: "{{ awg_dir }}/backups/awg_restore_upload.tar.gz"
+    state: absent
+
+- name: Remove decrypted plaintext on the control machine
+  ansible.builtin.file:
+    path: "{{ _awg_restore_plain }}"
+    state: absent
+  delegate_to: localhost
+  become: false

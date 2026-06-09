@@ -1,0 +1,9 @@
+---
+awg_dir: "/root/awg"
+awg_manage_script: "{{ awg_dir }}/manage_amneziawg.sh"
+node_exporter_textfile_dir: "/var/lib/node_exporter/textfile_collector"
+
+# Where fetched, age-encrypted archives land on the control machine (gitignored).
+backup_local_dir: "{{ playbook_dir }}/../../backups"
+# age public recipient key (age1...). Required; the host encrypts to it.
+backup_age_recipient: ""

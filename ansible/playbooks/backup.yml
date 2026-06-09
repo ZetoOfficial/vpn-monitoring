@@ -1,0 +1,6 @@
+---
+- name: Back up AmneziaWG host (encrypted, fetched off-host)
+  hosts: awg_servers
+  become: true
+  roles:
+    - backups
