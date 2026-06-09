@@ -7,3 +7,4 @@ ansible/group_vars/*/vault.yml
 .worktrees/
 *.key
 .secrets/
+ansible/inventory-*.yml
