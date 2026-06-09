@@ -80,3 +80,24 @@
   register: monitoring_compose
   changed_when: "'Started' in monitoring_compose.stdout or 'Created' in monitoring_compose.stdout or 'Recreated' in monitoring_compose.stdout"
   ignore_errors: "{{ ansible_check_mode }}"
+
+# GF_SECURITY_ADMIN_PASSWORD only applies on first init; it does NOT rotate the
+# password of an existing admin. Enforce it on every run so the inventory value
+# is authoritative.
+- name: Wait for Grafana to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:3000/api/health"
+    status_code: 200
+  register: _gf_health
+  retries: 15
+  delay: 3
+  until: _gf_health.status == 200
+  when: not ansible_check_mode
+
+- name: Ensure Grafana admin password matches inventory
+  ansible.builtin.command: >-
+    docker exec grafana grafana-cli --homepath=/usr/share/grafana
+    admin reset-admin-password "{{ grafana_admin_password }}"
+  changed_when: false
+  no_log: true
+  when: not ansible_check_mode
