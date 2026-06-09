@@ -7,7 +7,24 @@
   "version": 1,
   "refresh": "30s",
   "time": { "from": "now-6h", "to": "now" },
-  "templating": { "list": [] },
+  "templating": {
+    "list": [
+      {
+        "name": "peer",
+        "label": "Peer",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(awg_peer_online, peer)",
+        "definition": "label_values(awg_peer_online, peer)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "refresh": 2,
+        "sort": 1,
+        "current": { "text": ["All"], "value": ["$__all"] }
+      }
+    ]
+  },
   "annotations": { "list": [] },
   "panels": [
     {
@@ -76,7 +93,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
       "id": 7,
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_online", "legendFormat": "{{peer}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_online{peer=~\"$peer\"}", "legendFormat": "{{peer}}" }
       ]
     },
     {
@@ -87,7 +104,7 @@
       "id": 8,
       "fieldConfig": { "defaults": { "unit": "s" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_handshake_age_seconds", "legendFormat": "{{peer}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_handshake_age_seconds{peer=~\"$peer\"}", "legendFormat": "{{peer}}" }
       ]
     },
     {
@@ -98,7 +115,7 @@
       "id": 9,
       "fieldConfig": { "defaults": { "unit": "Bps" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(awg_peer_rx_bytes_total[5m])", "legendFormat": "{{peer}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(awg_peer_rx_bytes_total{peer=~\"$peer\"}[5m])", "legendFormat": "{{peer}}" }
       ]
     },
     {
@@ -109,7 +126,7 @@
       "id": 10,
       "fieldConfig": { "defaults": { "unit": "Bps" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(awg_peer_tx_bytes_total[5m])", "legendFormat": "{{peer}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(awg_peer_tx_bytes_total{peer=~\"$peer\"}[5m])", "legendFormat": "{{peer}}" }
       ]
     },
     {

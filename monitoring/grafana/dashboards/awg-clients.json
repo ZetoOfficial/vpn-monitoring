@@ -7,7 +7,24 @@
   "version": 1,
   "refresh": "30s",
   "time": { "from": "now-6h", "to": "now" },
-  "templating": { "list": [] },
+  "templating": {
+    "list": [
+      {
+        "name": "peer",
+        "label": "Peer",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(awg_peer_online, peer)",
+        "definition": "label_values(awg_peer_online, peer)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "refresh": 2,
+        "sort": 1,
+        "current": { "text": ["All"], "value": ["$__all"] }
+      }
+    ]
+  },
   "annotations": { "list": [] },
   "panels": [
     {
@@ -17,11 +34,11 @@
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
       "id": 1,
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_online", "instant": true, "format": "table" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_handshake_age_seconds", "instant": true, "format": "table" },
-        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "increase(awg_peer_endpoint_changed_total[1h])", "instant": true, "format": "table" },
-        { "refId": "D", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_duration_seconds{job=\"blackbox_icmp_peers\"} * 1000", "instant": true, "format": "table" },
-        { "refId": "E", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * (1 - avg_over_time(probe_success{job=\"blackbox_icmp_peers\"}[5m]))", "instant": true, "format": "table" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_online{peer=~\"$peer\"}", "instant": true, "format": "table" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_handshake_age_seconds{peer=~\"$peer\"}", "instant": true, "format": "table" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "increase(awg_peer_endpoint_changed_total{peer=~\"$peer\"}[1h])", "instant": true, "format": "table" },
+        { "refId": "D", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_duration_seconds{job=\"blackbox_icmp_peers\", peer=~\"$peer\"} * 1000", "instant": true, "format": "table" },
+        { "refId": "E", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * (1 - avg_over_time(probe_success{job=\"blackbox_icmp_peers\", peer=~\"$peer\"}[5m]))", "instant": true, "format": "table" }
       ],
       "transformations": [
         { "id": "merge", "options": {} },
@@ -81,7 +98,7 @@
       "id": 2,
       "fieldConfig": { "defaults": { "unit": "ms" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_duration_seconds{job=\"blackbox_icmp_peers\"} * 1000", "legendFormat": "{{peer}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_duration_seconds{job=\"blackbox_icmp_peers\", peer=~\"$peer\"} * 1000", "legendFormat": "{{peer}}" }
       ]
     },
     {
@@ -92,7 +109,7 @@
       "id": 3,
       "fieldConfig": { "defaults": { "unit": "percent", "max": 100 } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * (1 - avg_over_time(probe_success{job=\"blackbox_icmp_peers\"}[5m]))", "legendFormat": "{{peer}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * (1 - avg_over_time(probe_success{job=\"blackbox_icmp_peers\", peer=~\"$peer\"}[5m]))", "legendFormat": "{{peer}}" }
       ]
     },
     {
@@ -102,7 +119,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
       "id": 4,
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_online", "legendFormat": "{{peer}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_online{peer=~\"$peer\"}", "legendFormat": "{{peer}}" }
       ]
     },
     {
@@ -112,7 +129,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
       "id": 5,
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "increase(awg_peer_endpoint_changed_total[1h])", "legendFormat": "{{peer}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "increase(awg_peer_endpoint_changed_total{peer=~\"$peer\"}[1h])", "legendFormat": "{{peer}}" }
       ]
     }
   ]

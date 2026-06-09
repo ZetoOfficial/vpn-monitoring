@@ -7,7 +7,24 @@
   "version": 1,
   "refresh": "30s",
   "time": { "from": "now-6h", "to": "now" },
-  "templating": { "list": [] },
+  "templating": {
+    "list": [
+      {
+        "name": "peer",
+        "label": "Peer",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(awg_peer_online, peer)",
+        "definition": "label_values(awg_peer_online, peer)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "refresh": 2,
+        "sort": 1,
+        "current": { "text": ["All"], "value": ["$__all"] }
+      }
+    ]
+  },
   "annotations": { "list": [] },
   "panels": [
     { "type": "row", "title": "Host network health", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "id": 1 },
@@ -96,14 +113,14 @@
       "type": "timeseries", "title": "Peer endpoint changes (1h)",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 }, "id": 14,
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "increase(awg_peer_endpoint_changed_total[1h])", "legendFormat": "{{peer}}" } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "increase(awg_peer_endpoint_changed_total{peer=~\"$peer\"}[1h])", "legendFormat": "{{peer}}" } ]
     },
     {
       "type": "timeseries", "title": "Peer handshake age (s)",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 }, "id": 15,
       "fieldConfig": { "defaults": { "unit": "s" } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_handshake_age_seconds", "legendFormat": "{{peer}}" } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_handshake_age_seconds{peer=~\"$peer\"}", "legendFormat": "{{peer}}" } ]
     }
   ]
 }
