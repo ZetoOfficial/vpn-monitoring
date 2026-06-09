@@ -6,6 +6,10 @@ awg_manage_script: "{{ awg_dir }}/manage_amneziawg.sh"
 awg_server_conf: "/etc/amnezia/amneziawg/awg0.conf"
 
 awg_port: 51820
+# Public endpoint baked into generated client configs. Set to your domain
+# (e.g. vpn.example.com) so clients survive a host/IP migration — repoint DNS +
+# restore backup, no client reissue. Empty = installer uses the server IP.
+awg_endpoint: ""
 awg_tunnel_subnet: "10.9.9.1/24"
 awg_route_mode: "amnezia"        # all | amnezia | custom
 awg_route_custom_nets: ""

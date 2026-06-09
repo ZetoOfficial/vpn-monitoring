@@ -14,6 +14,10 @@ all:
     # We drive the installer non-interactively with these flags, so awg_port is
     # authoritative (the firewall role opens exactly this UDP port).
     awg_port: 51820
+    # Domain that resolves to this host. Baked into NEW client configs as the
+    # Endpoint, so a future host/IP migration is just "repoint DNS + restore
+    # backup" — no client reissue. Leave empty to use the raw server IP.
+    awg_endpoint: ""                 # e.g. "vpn.example.com"
     awg_tunnel_subnet: "10.9.9.1/24"
     awg_route_mode: "amnezia"        # all | amnezia | custom
     awg_route_custom_nets: ""        # used only when awg_route_mode == custom

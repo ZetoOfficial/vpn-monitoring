@@ -20,6 +20,8 @@
       {% endif %}
       --preset={{ awg_preset }}
       --ssh-port={{ awg_ssh_port }}
+      {% if awg_endpoint | default('') | length > 0 %}--endpoint={{ awg_endpoint }}
+      {% endif %}
       {{ awg_installer_extra_args }}
 
 - name: Download pinned AmneziaWG installer
