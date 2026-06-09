@@ -68,6 +68,11 @@ all:
     monitoring_base_dir: /opt/monitoring
     monitoring_repo_dir: "{{ playbook_dir }}/../../monitoring"
 
+    # ----- backups -----
+    # age PUBLIC key (host encrypts to it; private key stays on the control
+    # machine). Generate: age-keygen -o ~/.config/awg-backup/age.key
+    backup_age_recipient: ""         # e.g. "age1..."
+
   children:
     awg_servers:
       hosts:
