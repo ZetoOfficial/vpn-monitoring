@@ -1,0 +1,6 @@
+---
+awg_dir: "/root/awg"
+awg_port: 51820
+awg_tunnel_subnet: "10.9.9.1/24"
+awg_disable_ipv6: true
+awg_preset: "default"

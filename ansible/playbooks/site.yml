@@ -5,6 +5,7 @@
   roles:
     - common
     - amneziawg        # installs AWG, sets awg_port; must precede firewall
+    - reconcile        # fail loudly if install-time settings drifted from inventory
     - firewall         # opens SSH + awg_port UDP
     - awg_clients      # reconciles declared permanent peers
     - node_exporter

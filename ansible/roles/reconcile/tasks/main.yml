@@ -1,0 +1,46 @@
+---
+# Reconcile-or-fail layer for install-owned AmneziaWG settings.
+#
+# The bivlked installer applies these ONCE at bootstrap (guarded by `creates:`),
+# so changing the inventory var afterwards would silently no-op. This layer makes
+# such drift LOUD instead of silent.
+#
+# How every install-owned knob is handled across the project:
+#   reconciled every run (applied, not just asserted):
+#     - awg_endpoint            -> amneziawg (AWG_ENDPOINT) + awg_clients (per-client modify)
+#     - grafana_admin_password  -> monitoring_stack (grafana-cli reset)
+#   asserted here (install-time; to change → reinstall on a fresh host):
+#     - awg_port, awg_tunnel_subnet, awg_disable_ipv6, awg_preset
+#   install-time, NOT auto-checked (no clean introspection; see runbook):
+#     - awg_route_mode, obfuscation params (Jc/Jmin/Jmax/S*/H*/I*)
+
+- name: Read installer setup config
+  ansible.builtin.slurp:
+    src: "{{ awg_dir }}/awgsetup_cfg.init"
+  register: _awg_setup_raw
+
+- name: Parse actual install-time settings
+  vars:
+    _setup: "{{ _awg_setup_raw.content | b64decode }}"
+  ansible.builtin.set_fact:
+    _awg_actual_port: "{{ _setup | regex_search('AWG_PORT=([0-9]+)', '\\1') }}"
+    _awg_actual_subnet: "{{ _setup | regex_search(\"AWG_TUNNEL_SUBNET='([^']+)'\", '\\1') }}"
+    _awg_actual_ipv6: "{{ _setup | regex_search('DISABLE_IPV6=([0-9]+)', '\\1') }}"
+    _awg_actual_preset: "{{ _setup | regex_search(\"AWG_PRESET='([^']+)'\", '\\1') }}"
+
+- name: Assert install-time settings match inventory (fail loudly on drift)
+  ansible.builtin.assert:
+    that:
+      - _awg_actual_port == (awg_port | string)
+      - _awg_actual_subnet == awg_tunnel_subnet
+      - _awg_actual_ipv6 == ('1' if awg_disable_ipv6 else '0')
+      - _awg_actual_preset == awg_preset
+    fail_msg: >-
+      Install-time AmneziaWG drift on {{ inventory_hostname }} (inventory vs actual):
+      port {{ awg_port }}/{{ _awg_actual_port }},
+      subnet {{ awg_tunnel_subnet }}/{{ _awg_actual_subnet }},
+      disable_ipv6 {{ awg_disable_ipv6 }}/{{ _awg_actual_ipv6 }},
+      preset {{ awg_preset }}/{{ _awg_actual_preset }}.
+      These are applied once by the installer and CANNOT be changed by re-deploy —
+      to change one, reinstall on a fresh host (or rerun the installer with --force).
+    success_msg: "Install-time AWG settings match inventory (port/subnet/ipv6/preset)."
