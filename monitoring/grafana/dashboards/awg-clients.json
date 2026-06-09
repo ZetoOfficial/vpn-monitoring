@@ -278,6 +278,14 @@
             ]
           }
         ]
+      },
+      "options": {
+        "sortBy": [
+          {
+            "displayName": "Online",
+            "desc": true
+          }
+        ]
       }
     },
     {
@@ -368,6 +376,94 @@
           "legendFormat": "{{peer}}"
         }
       ]
+    },
+    {
+      "type": "table",
+      "title": "Traffic per client (rx+tx)",
+      "id": 101,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(awg_peer_rx_bytes_total{peer=~\"$peer\"}[1d]) + increase(awg_peer_tx_bytes_total{peer=~\"$peer\"}[1d])",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(awg_peer_rx_bytes_total{peer=~\"$peer\"}[7d]) + increase(awg_peer_tx_bytes_total{peer=~\"$peer\"}[7d])",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(awg_peer_rx_bytes_total{peer=~\"$peer\"}[30d]) + increase(awg_peer_tx_bytes_total{peer=~\"$peer\"}[30d])",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "__name__": true
+            },
+            "renameByName": {
+              "peer": "Peer",
+              "Value #A": "Day",
+              "Value #B": "Week",
+              "Value #C": "Month"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "filterable": true,
+            "align": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "sortBy": [
+          {
+            "displayName": "Week",
+            "desc": true
+          }
+        ]
+      }
     }
   ]
 }
