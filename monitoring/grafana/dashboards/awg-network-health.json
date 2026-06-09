@@ -1,19 +1,29 @@
 {
   "uid": "awg-network-health",
   "title": "AmneziaWG Network Health",
-  "tags": ["amneziawg", "network", "latency"],
+  "tags": [
+    "amneziawg",
+    "network",
+    "latency"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
   "refresh": "30s",
-  "time": { "from": "now-6h", "to": "now" },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
         "name": "peer",
         "label": "Peer",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
         "query": "label_values(awg_peer_online, peer)",
         "definition": "label_values(awg_peer_online, peer)",
         "includeAll": true,
@@ -21,106 +31,390 @@
         "multi": true,
         "refresh": 2,
         "sort": 1,
-        "current": { "text": ["All"], "value": ["$__all"] }
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
       }
     ]
   },
-  "annotations": { "list": [] },
+  "annotations": {
+    "list": []
+  },
   "panels": [
-    { "type": "row", "title": "Host network health", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "id": 1 },
     {
-      "type": "timeseries", "title": "CPU steal % (VPS contention)",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 1 }, "id": 2,
-      "fieldConfig": { "defaults": { "unit": "percent" } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg(rate(node_cpu_seconds_total{mode=\"steal\"}[5m])) * 100", "legendFormat": "steal" } ]
+      "type": "text",
+      "title": "Как читать этот дашборд",
+      "id": 100,
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Здоровье сервера и аплинка** — для кейса «клиент жалуется, а сервер на вид ок».\n\n**CPU steal↑** = провайдер урезает такты (скачки латентности). **NIC drops/errors, TCP retransmits, UDP errors** = потери на сервере. **conntrack→100%** = дропы соединений. **ICMP RTT/loss наружу** = джиттер/потери аплинка сервера.\n\nЕсли тут всё 🟢, а клиент тормозит → его last-mile (см. **Clients**)."
+      }
     },
     {
-      "type": "timeseries", "title": "Load per core",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 1 }, "id": 3,
+      "type": "row",
+      "title": "Host network health",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 1
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU steal % (VPS contention)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "id": 2,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "node_load1 / count(count(node_cpu_seconds_total) by (cpu))", "legendFormat": "load1/core" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "node_load5 / count(count(node_cpu_seconds_total) by (cpu))", "legendFormat": "load5/core" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "avg(rate(node_cpu_seconds_total{mode=\"steal\"}[5m])) * 100",
+          "legendFormat": "steal"
+        }
       ]
     },
     {
-      "type": "timeseries", "title": "NIC packet drops",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 8 }, "id": 4,
-      "fieldConfig": { "defaults": { "unit": "pps" } },
+      "type": "timeseries",
+      "title": "Load per core",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "id": 3,
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(node_network_receive_drop_total{device!~\"lo|awg.*\"}[5m])", "legendFormat": "rx drop {{device}}" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(node_network_transmit_drop_total{device!~\"lo|awg.*\"}[5m])", "legendFormat": "tx drop {{device}}" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "node_load1 / count(count(node_cpu_seconds_total) by (cpu))",
+          "legendFormat": "load1/core"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "node_load5 / count(count(node_cpu_seconds_total) by (cpu))",
+          "legendFormat": "load5/core"
+        }
       ]
     },
     {
-      "type": "timeseries", "title": "NIC errors",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 8 }, "id": 5,
-      "fieldConfig": { "defaults": { "unit": "pps" } },
+      "type": "timeseries",
+      "title": "NIC packet drops",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "id": 4,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps"
+        }
+      },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(node_network_receive_errs_total{device!~\"lo|awg.*\"}[5m])", "legendFormat": "rx err {{device}}" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(node_network_transmit_errs_total{device!~\"lo|awg.*\"}[5m])", "legendFormat": "tx err {{device}}" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_network_receive_drop_total{device!~\"lo|awg.*\"}[5m])",
+          "legendFormat": "rx drop {{device}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_network_transmit_drop_total{device!~\"lo|awg.*\"}[5m])",
+          "legendFormat": "tx drop {{device}}"
+        }
       ]
     },
     {
-      "type": "timeseries", "title": "TCP retransmits/s",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 15 }, "id": 6,
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(node_netstat_Tcp_RetransSegs[5m])", "legendFormat": "retrans" } ]
-    },
-    {
-      "type": "timeseries", "title": "UDP receive errors/s",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 15 }, "id": 7,
+      "type": "timeseries",
+      "title": "NIC errors",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "id": 5,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps"
+        }
+      },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(node_netstat_Udp_RcvbufErrors[5m])", "legendFormat": "rcvbuf" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(node_netstat_Udp_InErrors[5m])", "legendFormat": "inerr" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_network_receive_errs_total{device!~\"lo|awg.*\"}[5m])",
+          "legendFormat": "rx err {{device}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_network_transmit_errs_total{device!~\"lo|awg.*\"}[5m])",
+          "legendFormat": "tx err {{device}}"
+        }
       ]
     },
     {
-      "type": "timeseries", "title": "Conntrack table used %",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 15 }, "id": 8,
-      "fieldConfig": { "defaults": { "unit": "percent", "max": 100 } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "node_nf_conntrack_entries / node_nf_conntrack_entries_limit * 100", "legendFormat": "conntrack" } ]
-    },
-    { "type": "row", "title": "Latency / loss (active probing)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 }, "id": 9 },
-    {
-      "type": "timeseries", "title": "ICMP RTT to external targets",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 }, "id": 10,
-      "fieldConfig": { "defaults": { "unit": "s" } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_duration_seconds{job=\"blackbox_icmp\"}", "legendFormat": "{{instance}}" } ]
-    },
-    {
-      "type": "timeseries", "title": "ICMP packet loss %",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 }, "id": 11,
-      "fieldConfig": { "defaults": { "unit": "percent", "max": 100 } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * (1 - avg_over_time(probe_success{job=\"blackbox_icmp\"}[5m]))", "legendFormat": "{{instance}}" } ]
-    },
-    {
-      "type": "timeseries", "title": "HTTP probe latency",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 31 }, "id": 12,
-      "fieldConfig": { "defaults": { "unit": "s" } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_duration_seconds{job=\"blackbox_http\"}", "legendFormat": "{{instance}}" } ]
-    },
-    { "type": "row", "title": "Peer stability", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 }, "id": 13 },
-    {
-      "type": "timeseries", "title": "Peer endpoint changes (1h)",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 }, "id": 14,
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "increase(awg_peer_endpoint_changed_total{peer=~\"$peer\"}[1h])", "legendFormat": "{{peer}}" } ]
+      "type": "timeseries",
+      "title": "TCP retransmits/s",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 20
+      },
+      "id": 6,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_netstat_Tcp_RetransSegs[5m])",
+          "legendFormat": "retrans"
+        }
+      ]
     },
     {
-      "type": "timeseries", "title": "Peer handshake age (s)",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 }, "id": 15,
-      "fieldConfig": { "defaults": { "unit": "s" } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_handshake_age_seconds{peer=~\"$peer\"}", "legendFormat": "{{peer}}" } ]
+      "type": "timeseries",
+      "title": "UDP receive errors/s",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 20
+      },
+      "id": 7,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_netstat_Udp_RcvbufErrors[5m])",
+          "legendFormat": "rcvbuf"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_netstat_Udp_InErrors[5m])",
+          "legendFormat": "inerr"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Conntrack table used %",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 20
+      },
+      "id": 8,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "max": 100
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "node_nf_conntrack_entries / node_nf_conntrack_entries_limit * 100",
+          "legendFormat": "conntrack"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Latency / loss (active probing)",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "id": 9
+    },
+    {
+      "type": "timeseries",
+      "title": "ICMP RTT to external targets",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "id": 10,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_duration_seconds{job=\"blackbox_icmp\"}",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "ICMP packet loss %",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "id": 11,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "max": 100
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (1 - avg_over_time(probe_success{job=\"blackbox_icmp\"}[5m]))",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP probe latency",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "id": 12,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_duration_seconds{job=\"blackbox_http\"}",
+          "legendFormat": "{{instance}}"
+        }
+      ]
     }
   ]
 }

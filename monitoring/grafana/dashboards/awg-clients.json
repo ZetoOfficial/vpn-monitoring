@@ -1,19 +1,28 @@
 {
   "uid": "awg-clients",
   "title": "AmneziaWG Clients",
-  "tags": ["amneziawg", "clients"],
+  "tags": [
+    "amneziawg",
+    "clients"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
   "refresh": "30s",
-  "time": { "from": "now-6h", "to": "now" },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
         "name": "peer",
         "label": "Peer",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
         "query": "label_values(awg_peer_online, peer)",
         "definition": "label_values(awg_peer_online, peer)",
         "includeAll": true,
@@ -21,31 +30,116 @@
         "multi": true,
         "refresh": 2,
         "sort": 1,
-        "current": { "text": ["All"], "value": ["$__all"] }
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
       }
     ]
   },
-  "annotations": { "list": [] },
+  "annotations": {
+    "list": []
+  },
   "panels": [
+    {
+      "type": "text",
+      "title": "Как читать этот дашборд",
+      "id": 100,
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Диагностика по клиентам.** Выбирай пиров через `$peer`.\n\nТаблица (цвет ячеек): **Online** 🟢=1 / 🔴=0 · **Handshake age** 🟢<140s / 🔴>180s · **Tunnel loss** 🟢0 / 🔴≥10%.\n\n⚠️ **Tunnel RTT/loss** есть только у пиров с `tunnel_ping` (роутеры) — телефоны не отвечают на ICMP, их суди по Online / handshake / endpoint-flaps. **Endpoint flaps↑** = роуминг/NAT-нестабильность на стороне клиента."
+      }
+    },
     {
       "type": "table",
       "title": "Client health (sort by what looks worst)",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
       "id": 1,
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_online{peer=~\"$peer\"}", "instant": true, "format": "table" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_handshake_age_seconds{peer=~\"$peer\"}", "instant": true, "format": "table" },
-        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "increase(awg_peer_endpoint_changed_total{peer=~\"$peer\"}[1h])", "instant": true, "format": "table" },
-        { "refId": "D", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_duration_seconds{job=\"blackbox_icmp_peers\", peer=~\"$peer\"} * 1000", "instant": true, "format": "table" },
-        { "refId": "E", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * (1 - avg_over_time(probe_success{job=\"blackbox_icmp_peers\", peer=~\"$peer\"}[5m]))", "instant": true, "format": "table" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "awg_peer_online{peer=~\"$peer\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "awg_peer_handshake_age_seconds{peer=~\"$peer\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(awg_peer_endpoint_changed_total{peer=~\"$peer\"}[1h])",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_duration_seconds{job=\"blackbox_icmp_peers\", peer=~\"$peer\"} * 1000",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (1 - avg_over_time(probe_success{job=\"blackbox_icmp_peers\", peer=~\"$peer\"}[5m]))",
+          "instant": true,
+          "format": "table"
+        }
       ],
       "transformations": [
-        { "id": "merge", "options": {} },
+        {
+          "id": "merge",
+          "options": {}
+        },
         {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true, "instance": true, "job": true, "__name__": true },
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "__name__": true
+            },
             "renameByName": {
               "peer": "Peer",
               "Value #A": "Online",
@@ -58,34 +152,130 @@
         }
       ],
       "fieldConfig": {
-        "defaults": { "custom": { "filterable": true, "align": "auto" } },
+        "defaults": {
+          "custom": {
+            "filterable": true,
+            "align": "auto"
+          }
+        },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Online" },
+            "matcher": {
+              "id": "byName",
+              "options": "Online"
+            },
             "properties": [
-              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
-              { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } }
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "Handshake age (s)" },
+            "matcher": {
+              "id": "byName",
+              "options": "Handshake age (s)"
+            },
             "properties": [
-              { "id": "unit", "value": "s" },
-              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
-              { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 140 }, { "color": "red", "value": 180 } ] } }
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 140
+                    },
+                    {
+                      "color": "red",
+                      "value": 180
+                    }
+                  ]
+                }
+              }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "Tunnel loss %" },
+            "matcher": {
+              "id": "byName",
+              "options": "Tunnel loss %"
+            },
             "properties": [
-              { "id": "unit", "value": "percent" },
-              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
-              { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 10 } ] } }
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 10
+                    }
+                  ]
+                }
+              }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "Tunnel RTT (ms)" },
-            "properties": [ { "id": "unit", "value": "ms" } ]
+            "matcher": {
+              "id": "byName",
+              "options": "Tunnel RTT (ms)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
           }
         ]
       }
@@ -93,43 +283,90 @@
     {
       "type": "timeseries",
       "title": "Per-peer tunnel RTT (ms)",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
       "id": 2,
-      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_duration_seconds{job=\"blackbox_icmp_peers\", peer=~\"$peer\"} * 1000", "legendFormat": "{{peer}}" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_duration_seconds{job=\"blackbox_icmp_peers\", peer=~\"$peer\"} * 1000",
+          "legendFormat": "{{peer}}"
+        }
       ]
     },
     {
       "type": "timeseries",
       "title": "Per-peer tunnel loss %",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
       "id": 3,
-      "fieldConfig": { "defaults": { "unit": "percent", "max": 100 } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "max": 100
+        }
+      },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * (1 - avg_over_time(probe_success{job=\"blackbox_icmp_peers\", peer=~\"$peer\"}[5m]))", "legendFormat": "{{peer}}" }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "Per-peer online",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
-      "id": 4,
-      "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "awg_peer_online{peer=~\"$peer\"}", "legendFormat": "{{peer}}" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (1 - avg_over_time(probe_success{job=\"blackbox_icmp_peers\", peer=~\"$peer\"}[5m]))",
+          "legendFormat": "{{peer}}"
+        }
       ]
     },
     {
       "type": "timeseries",
       "title": "Per-peer endpoint changes (1h)",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 23
+      },
       "id": 5,
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "increase(awg_peer_endpoint_changed_total{peer=~\"$peer\"}[1h])", "legendFormat": "{{peer}}" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(awg_peer_endpoint_changed_total{peer=~\"$peer\"}[1h])",
+          "legendFormat": "{{peer}}"
+        }
       ]
     }
   ]
