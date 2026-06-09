@@ -2,6 +2,9 @@ global:
   scrape_interval: {{ prometheus_scrape_interval }}
   evaluation_interval: {{ prometheus_scrape_interval }}
 
+rule_files:
+  - /etc/prometheus/alerts.yml
+
 scrape_configs:
   - job_name: prometheus
     static_configs:
@@ -14,3 +17,39 @@ scrape_configs:
   - job_name: amneziawg
     static_configs:
       - targets: ["{{ amneziawg_exporter_listen_ip }}:{{ amneziawg_exporter_port }}"]
+{% if blackbox_enabled %}
+
+  - job_name: blackbox_icmp
+    metrics_path: /probe
+    params:
+      module: [icmp]
+    static_configs:
+      - targets:
+{% for t in blackbox_icmp_targets %}
+          - "{{ t }}"
+{% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: "127.0.0.1:{{ blackbox_port }}"
+
+  - job_name: blackbox_http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+{% for t in blackbox_http_targets %}
+          - "{{ t }}"
+{% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: "127.0.0.1:{{ blackbox_port }}"
+{% endif %}

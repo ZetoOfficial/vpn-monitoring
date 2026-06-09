@@ -7,3 +7,4 @@ node_exporter_textfile_dir: "/var/lib/node_exporter/textfile_collector"
 
 awg_peer_exporter_interval: 60
 awg_peer_exporter_endpoint_label: true
+awg_peer_exporter_state_dir: "/var/lib/awg-peer-exporter"

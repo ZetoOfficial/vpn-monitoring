@@ -13,3 +13,14 @@ node_exporter_listen_ip: "127.0.0.1"
 node_exporter_port: 9100
 amneziawg_exporter_listen_ip: "127.0.0.1"
 amneziawg_exporter_port: 9351
+
+# blackbox active probing (latency / loss / jitter from the server's uplink)
+blackbox_enabled: true
+blackbox_port: 9115
+blackbox_icmp_targets:
+  - "1.1.1.1"
+  - "8.8.8.8"
+  - "9.9.9.9"
+blackbox_http_targets:
+  - "https://www.google.com"
+  - "https://cloudflare.com"

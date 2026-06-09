@@ -1,0 +1,105 @@
+groups:
+  - name: awg-appliance
+    rules:
+      # ---- network path / "clients lag but host looks fine" ----
+      - alert: CPUStealHigh
+        expr: avg(rate(node_cpu_seconds_total{mode="steal"}[5m])) * 100 > 10
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "High CPU steal ({{ $value | printf \"%.1f\" }}%) — VPS host is oversubscribed; expect latency spikes."
+
+      - alert: LoadPerCoreHigh
+        expr: node_load5 / count(count(node_cpu_seconds_total) by (cpu)) > 2
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Load per core > 2 for 10m — sustained saturation."
+
+      - alert: NICDrops
+        expr: rate(node_network_receive_drop_total{device!~"lo|awg.*"}[5m])
+              + rate(node_network_transmit_drop_total{device!~"lo|awg.*"}[5m]) > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "NIC packet drops on {{ $labels.device }} — packet loss at the server."
+
+      - alert: NICErrors
+        expr: rate(node_network_receive_errs_total{device!~"lo|awg.*"}[5m])
+              + rate(node_network_transmit_errs_total{device!~"lo|awg.*"}[5m]) > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "NIC errors on {{ $labels.device }}."
+
+      - alert: TCPRetransmitsHigh
+        expr: rate(node_netstat_Tcp_RetransSegs[5m]) > 20
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "High TCP retransmit rate — lossy or congested uplink."
+
+      - alert: UDPReceiveErrors
+        expr: rate(node_netstat_Udp_RcvbufErrors[5m]) + rate(node_netstat_Udp_InErrors[5m]) > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "UDP receive errors — AmneziaWG traffic may be dropping at the socket."
+
+      - alert: ConntrackNearFull
+        expr: node_nf_conntrack_entries / node_nf_conntrack_entries_limit > 0.8
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "conntrack table > 80% full — new connections will be dropped."
+
+      # ---- active probing (blackbox) ----
+      - alert: UplinkPacketLoss
+        expr: 100 * (1 - avg_over_time(probe_success{job="blackbox_icmp"}[5m])) >= 10
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $value | printf \"%.0f\" }}% ICMP loss to {{ $labels.instance }} — server uplink is lossy."
+
+      - alert: UplinkLatencyHigh
+        expr: probe_duration_seconds{job="blackbox_icmp"} > 0.3
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "ICMP RTT to {{ $labels.instance }} > 300ms."
+
+      # ---- VPN / host basics ----
+      - alert: AWGExporterDown
+        expr: up{job="amneziawg"} == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "amneziawg-exporter is down."
+
+      - alert: AWGStatusDown
+        expr: awg_status == 0
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "awg_status == 0 — AmneziaWG reports not OK."
+
+      - alert: PeerEndpointFlapping
+        expr: increase(awg_peer_endpoint_changed_total[15m]) > 3
+        for: 0m
+        labels: { severity: warning }
+        annotations:
+          summary: "Peer {{ $labels.peer }} changed endpoint > 3x in 15m — unstable client link (roaming/NAT)."
+
+      - alert: DiskHigh
+        expr: 100 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} * 100) > 85
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Root disk > 85% used."
+
+      - alert: MemoryHigh
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Memory > 90% used."

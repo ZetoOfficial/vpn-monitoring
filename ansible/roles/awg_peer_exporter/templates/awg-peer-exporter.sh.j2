@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Managed by Ansible (role: awg_peer_exporter). Emits per-peer AmneziaWG metrics
-# into the node_exporter textfile collector. Data source: manage_amneziawg.sh
-# `stats --json` (name-mapped rx/tx/handshake); endpoint metadata from
-# `awg show <iface> dump` when enabled.
+# into the node_exporter textfile collector. Core rx/tx/handshake come from
+# manage_amneziawg.sh `stats --json`; endpoint metadata + endpoint-change counter
+# come from `awg show <iface> dump` joined with the server conf name map.
 set -euo pipefail
 
 MANAGE="{{ awg_manage_script }}"
@@ -10,11 +10,56 @@ IFACE="{{ awg_interface }}"
 SERVER_CONF="{{ awg_server_conf }}"
 OUT="{{ node_exporter_textfile_dir }}/awg_peers.prom"
 ENDPOINT_LABEL="{{ 'yes' if awg_peer_exporter_endpoint_label else 'no' }}"
+STATE_DIR="{{ awg_peer_exporter_state_dir }}"
+STATE="$STATE_DIR/endpoints.state"   # lines: name<TAB>endpoint<TAB>change_count
 
 now=$(date +%s)
 tmp=$(mktemp)
+mkdir -p "$STATE_DIR"
 
 stats=$(bash "$MANAGE" --no-color --json stats 2>/dev/null || echo '[]')
+
+# Previous endpoint + change-count per peer (persisted across runs).
+declare -A prev_ep prev_cnt
+if [[ -f "$STATE" ]]; then
+  while IFS=$'\t' read -r _n _ep _c; do
+    [[ -z "$_n" ]] && continue
+    prev_ep["$_n"]="$_ep"; prev_cnt["$_n"]="$_c"
+  done < "$STATE"
+fi
+
+# pubkey -> name from the server conf.
+declare -A pk2name
+_name=""
+while IFS= read -r line; do
+  case "$line" in
+    "#_Name = "*) _name="${line#\#_Name = }"; _name="${_name%% }" ;;
+    "PublicKey = "*) _pk="${line#PublicKey = }"; _pk="${_pk%% }"; [[ -n "$_name" ]] && pk2name["$_pk"]="$_name"; _name="" ;;
+  esac
+done < "$SERVER_CONF"
+
+# Current endpoint per peer from the dump, plus updated change counters + state.
+declare -A cur_ep cur_aips cur_cnt
+while IFS=$'\t' read -r pk _psk ep aips _hs _rx _tx _ka; do
+  n="${pk2name[$pk]:-}"
+  [[ -z "$n" ]] && continue
+  [[ "$ep" == "(none)" ]] && ep=""
+  cur_ep["$n"]="$ep"; cur_aips["$n"]="$aips"
+  c="${prev_cnt[$n]:-0}"
+  pe="${prev_ep[$n]:-}"
+  # Count a change only between two real (non-empty) endpoints.
+  if [[ -n "$pe" && -n "$ep" && "$pe" != "$ep" ]]; then
+    c=$((c + 1))
+  fi
+  cur_cnt["$n"]="$c"
+done < <(awg show "$IFACE" dump 2>/dev/null | tail -n +2)
+
+# Persist state atomically.
+state_tmp=$(mktemp)
+for n in "${!cur_cnt[@]}"; do
+  printf '%s\t%s\t%s\n' "$n" "${cur_ep[$n]}" "${cur_cnt[$n]}"
+done > "$state_tmp"
+mv "$state_tmp" "$STATE"
 
 {
   echo "# HELP awg_peer_online 1 if peer handshake age < 180s"
@@ -40,25 +85,18 @@ stats=$(bash "$MANAGE" --no-color --json stats 2>/dev/null || echo '[]')
     "awg_peer_tx_bytes_total{peer=\"\($n)\"} \(.tx // 0)"
   '
 
+  echo "# HELP awg_peer_endpoint_changed_total Count of peer endpoint changes (roaming / NAT rebinding)"
+  echo "# TYPE awg_peer_endpoint_changed_total counter"
+  for n in "${!cur_cnt[@]}"; do
+    echo "awg_peer_endpoint_changed_total{peer=\"$n\"} ${cur_cnt[$n]}"
+  done
+
   if [[ "$ENDPOINT_LABEL" == "yes" ]]; then
     echo "# HELP awg_peer_info Peer endpoint / allowed-ips metadata"
     echo "# TYPE awg_peer_info gauge"
-    declare -A pk2name
-    _name=""
-    while IFS= read -r line; do
-      case "$line" in
-        "#_Name = "*) _name="${line#\#_Name = }"; _name="${_name%% }" ;;
-        "PublicKey = "*) _pk="${line#PublicKey = }"; _pk="${_pk%% }"; [[ -n "$_name" ]] && pk2name["$_pk"]="$_name"; _name="" ;;
-      esac
-    done < "$SERVER_CONF"
-
-    # dump columns: pubkey psk endpoint allowed-ips handshake rx tx keepalive
-    while IFS=$'\t' read -r pk _psk ep aips _hs _rx _tx _ka; do
-      n="${pk2name[$pk]:-}"
-      [[ -z "$n" ]] && continue
-      [[ "$ep" == "(none)" ]] && ep=""
-      echo "awg_peer_info{peer=\"$n\",endpoint=\"$ep\",allowed_ips=\"$aips\"} 1"
-    done < <(awg show "$IFACE" dump 2>/dev/null | tail -n +2)
+    for n in "${!cur_ep[@]}"; do
+      echo "awg_peer_info{peer=\"$n\",endpoint=\"${cur_ep[$n]}\",allowed_ips=\"${cur_aips[$n]}\"} 1"
+    done
   fi
 } > "$tmp"
 
