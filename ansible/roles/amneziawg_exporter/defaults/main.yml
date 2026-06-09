@@ -4,6 +4,12 @@ awg_interface: "awg0"
 amneziawg_exporter_repo: "https://github.com/amnezia-vpn/amneziawg-exporter.git"
 amneziawg_exporter_version: "main"          # TODO: pin to a release tag/commit
 amneziawg_exporter_dir: "/opt/amneziawg-exporter"
+# Used only if the repo has no requirements.txt — mirrors the upstream Dockerfile.
+amneziawg_exporter_pip_deps:
+  - "prometheus_client==0.20.0"
+  - "python-decouple==3.8"
+  - "requests==2.32.3"
+  - "redis==5.2.0"
 amneziawg_exporter_listen_ip: "127.0.0.1"
 amneziawg_exporter_port: 9351
 amneziawg_exporter_scrape_interval: 60

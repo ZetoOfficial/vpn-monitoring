@@ -4,6 +4,7 @@
   ansible.builtin.apt:
     name: redis-server
     state: present
+    update_cache: true   # AWG installer adds a PPA; refresh before installing
 
 - name: Bind Redis to localhost
   ansible.builtin.lineinfile:
@@ -39,11 +40,9 @@
   when: _awg_exp_reqs.stat.exists
   notify: Restart amneziawg-exporter
 
-- name: Install fallback deps when no requirements.txt
+- name: Install exporter deps when no requirements.txt (pinned to upstream Dockerfile)
   ansible.builtin.pip:
-    name:
-      - prometheus_client
-      - redis
+    name: "{{ amneziawg_exporter_pip_deps }}"
     virtualenv: "{{ amneziawg_exporter_dir }}/venv"
     virtualenv_command: python3 -m venv
   when: not _awg_exp_reqs.stat.exists

@@ -1,5 +1,6 @@
 ---
 awg_installer_version: "v5.15.3"
+awg_install_max_attempts: 4   # tolerate multiple installer reboots on fresh hosts
 awg_interface: "awg0"
 awg_dir: "/root/awg"
 awg_manage_script: "{{ awg_dir }}/manage_amneziawg.sh"

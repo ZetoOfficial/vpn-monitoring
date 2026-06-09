@@ -1,11 +1,10 @@
 ---
 # Installs AmneziaWG via the pinned bivlked installer, driven non-interactively.
-# The installer may require ONE reboot (kernel module / DKMS) on a fresh host; it
-# tracks progress in /root/awg/setup_state and resumes on re-run, so we run it,
-# tolerate a reboot, wait for the host, then run again. The `creates:` guard makes
-# the second run a no-op when the first completed without rebooting.
-#
-# NOTE: the reboot path needs validation on a real fresh VPS (see plan open items).
+# On a fresh host the installer runs in steps and reboots between them (kernel
+# module / DKMS), tracking progress in /root/awg/setup_state and resuming on
+# re-run. We therefore loop: run installer (tolerating the reboot-induced
+# unreachable) -> wait for the host -> repeat, until the manage script appears.
+# The `creates:` guard makes passes after completion a no-op.
 
 - name: Build AmneziaWG installer flags
   ansible.builtin.set_fact:
@@ -30,28 +29,12 @@
     dest: /root/install_amneziawg_en.sh
     mode: "0700"
 
-- name: Run AmneziaWG installer (first pass; may trigger a reboot)
-  ansible.builtin.command:
-    cmd: "bash /root/install_amneziawg_en.sh {{ _awg_installer_flags }}"
-    creates: "{{ awg_manage_script }}"
-  register: _awg_install
-  changed_when: _awg_install.rc == 0
-  # A reboot mid-install drops the connection as "unreachable" (which
-  # ignore_errors does NOT catch); tolerate both, then reconnect and resume.
-  ignore_errors: true
-  ignore_unreachable: true
-
-- name: Wait for the host to come back (in case the installer rebooted)
-  ansible.builtin.wait_for_connection:
-    delay: 10
-    timeout: 600
-
-- name: Run AmneziaWG installer (resume after reboot if needed)
-  ansible.builtin.command:
-    cmd: "bash /root/install_amneziawg_en.sh {{ _awg_installer_flags }}"
-    creates: "{{ awg_manage_script }}"
-  register: _awg_install2
-  changed_when: _awg_install2.rc == 0
+- name: Install AmneziaWG (idempotent; tolerates reboots between installer steps)
+  ansible.builtin.include_tasks: install_attempt.yml
+  loop: "{{ range(1, awg_install_max_attempts + 1) | list }}"
+  loop_control:
+    loop_var: _awg_attempt
+    label: "attempt {{ _awg_attempt }}/{{ awg_install_max_attempts }}"
 
 - name: Check the manage script is present
   ansible.builtin.stat:
@@ -63,8 +46,8 @@
     that:
       - _awg_manage_stat.stat.exists
     fail_msg: >-
-      AmneziaWG install incomplete: {{ awg_manage_script }} is missing.
-      Inspect {{ awg_dir }}/install_amneziawg.log on the host.
+      AmneziaWG install incomplete after {{ awg_install_max_attempts }} passes:
+      {{ awg_manage_script }} is missing. Inspect {{ awg_dir }}/install_amneziawg.log.
 
 - name: Health-check — interface is up
   ansible.builtin.command: "awg show {{ awg_interface }}"

@@ -1,41 +1,52 @@
 ---
-- name: Assert distribution is supported
-  ansible.builtin.assert:
-    that:
-      - ansible_facts.distribution | lower in ["debian", "ubuntu"]
-      - ansible_facts.architecture in ["x86_64", "aarch64"]
-    fail_msg: "docker role supports Debian/Ubuntu on x86_64/aarch64 only; got {{ ansible_facts.distribution }}/{{ ansible_facts.architecture }}."
+# Some base images / the AmneziaWG installer already ship Docker. Only set up the
+# upstream repo + install when Docker is genuinely absent, to avoid clobbering an
+# existing docker.list (conflicting Signed-By keyrings break apt).
+- name: Check whether Docker is already installed
+  ansible.builtin.command: docker --version
+  register: _docker_check
+  failed_when: false
+  changed_when: false
 
-- name: Ensure /etc/apt/keyrings exists
-  ansible.builtin.file:
-    path: /etc/apt/keyrings
-    state: directory
-    mode: "0755"
+- name: Install Docker from the upstream repo (only when absent)
+  when: _docker_check.rc != 0
+  block:
+    - name: Assert distribution is supported
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution | lower in ["debian", "ubuntu"]
+          - ansible_facts.architecture in ["x86_64", "aarch64"]
+        fail_msg: "docker role supports Debian/Ubuntu on x86_64/aarch64 only; got {{ ansible_facts.distribution }}/{{ ansible_facts.architecture }}."
 
-- name: Install Docker apt key
-  ansible.builtin.get_url:
-    url: "https://download.docker.com/linux/{{ ansible_facts.distribution | lower }}/gpg"
-    dest: /etc/apt/keyrings/docker.asc
-    mode: "0644"
-    force: false
+    - name: Ensure /etc/apt/keyrings exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
 
-- name: Add Docker apt repository
-  ansible.builtin.apt_repository:
-    repo: "deb [arch={{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts.architecture] }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_facts.distribution | lower }} {{ ansible_facts.distribution_release }} stable"
-    filename: docker
-    state: present
-    update_cache: true
+    - name: Install Docker apt key
+      ansible.builtin.get_url:
+        url: "https://download.docker.com/linux/{{ ansible_facts.distribution | lower }}/gpg"
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+        force: false
 
-- name: Install Docker packages
-  ansible.builtin.apt:
-    name:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
-      - docker-buildx-plugin
-      - docker-compose-plugin
-    state: present
-  ignore_errors: "{{ ansible_check_mode }}"
+    - name: Add Docker apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch={{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts.architecture] }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_facts.distribution | lower }} {{ ansible_facts.distribution_release }} stable"
+        filename: docker
+        state: present
+        update_cache: true
+
+    - name: Install Docker packages
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
 
 - name: Ensure Docker service is enabled and running
   ansible.builtin.systemd:
@@ -43,4 +54,3 @@
     state: started
     enabled: true
     daemon_reload: true
-  ignore_errors: "{{ ansible_check_mode }}"

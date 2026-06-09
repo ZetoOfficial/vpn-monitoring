@@ -1,0 +1,17 @@
+---
+# One installer pass. Skipped (no-op) once the manage script exists thanks to
+# `creates:`. A reboot mid-pass surfaces as unreachable — tolerated here, then
+# wait_for_connection blocks until the host (and SSH) are back for the next pass.
+- name: "AmneziaWG installer pass {{ _awg_attempt }}"
+  ansible.builtin.command:
+    cmd: "bash /root/install_amneziawg_en.sh {{ _awg_installer_flags }}"
+    creates: "{{ awg_manage_script }}"
+  register: _awg_install
+  changed_when: _awg_install.rc | default(1) == 0
+  ignore_errors: true
+  ignore_unreachable: true
+
+- name: "Wait for host after installer pass {{ _awg_attempt }}"
+  ansible.builtin.wait_for_connection:
+    delay: 20
+    timeout: 600
