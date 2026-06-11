@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# Managed by Ansible (role: wireguard). CLI manager for the plain-WireGuard
+# backend — owns {{ wg_dir }}/{{ wg_interface }}.conf (interface + peers).
+# Usage: wg-client {add|remove|list|show|init} [name]
+set -euo pipefail
+
+IFACE="{{ wg_interface }}"
+WG_DIR="{{ wg_dir }}"
+CONF="$WG_DIR/$IFACE.conf"
+CLIENTS_DIR="$WG_DIR/clients"
+PORT="{{ wg_port }}"
+SERVER_ADDR="{{ wg_subnet }}"
+SUBNET_CIDR="{{ wg_subnet_cidr }}"
+ENDPOINT="{{ wg_endpoint }}"
+MTU="{{ wg_mtu }}"
+DNS="{{ wg_dns }}"
+WAN="{{ ansible_default_ipv4.interface }}"
+IP_PREFIX="{{ wg_subnet_cidr.split('.')[0:3] | join('.') }}"
+
+die(){ echo "ERROR: $*" >&2; exit 1; }
+[ "$(id -u)" = 0 ] || die "run as root"
+command -v wg >/dev/null || die "wireguard-tools not installed"
+mkdir -p "$CLIENTS_DIR"; chmod 700 "$WG_DIR" "$CLIENTS_DIR" 2>/dev/null || true
+
+validate_name(){ [[ "${1:-}" =~ ^[a-zA-Z0-9_-]+$ ]] || die "bad/empty name: '${1:-}'"; }
+peer_exists(){ grep -qxF "# name = $1" "$CONF" 2>/dev/null; }
+apply(){ wg show "$IFACE" >/dev/null 2>&1 && wg syncconf "$IFACE" <(wg-quick strip "$IFACE") || true; }
+
+ensure_server_keys(){
+  umask 077
+  [ -f "$WG_DIR/server_private.key" ] || wg genkey > "$WG_DIR/server_private.key"
+  [ -f "$WG_DIR/server_public.key" ]  || wg pubkey < "$WG_DIR/server_private.key" > "$WG_DIR/server_public.key"
+}
+
+init_conf(){
+  ensure_server_keys
+  if [ -f "$CONF" ]; then echo "init: exists"; return 0; fi
+  umask 077
+  cat > "$CONF" <<EOF
+[Interface]
+Address = $SERVER_ADDR
+ListenPort = $PORT
+PrivateKey = $(cat "$WG_DIR/server_private.key")
+PostUp = iptables -t nat -A POSTROUTING -s $SUBNET_CIDR -o $WAN -j MASQUERADE
+PostDown = iptables -t nat -D POSTROUTING -s $SUBNET_CIDR -o $WAN -j MASQUERADE
+EOF
+  echo "init: created"
+}
+
+next_ip(){
+  local o max=1
+  while read -r o; do [ "${o:-0}" -gt "$max" ] && max="$o"; done \
+    < <(grep -oP 'AllowedIPs = '"${IP_PREFIX//./\\.}"'\.\K[0-9]+' "$CONF" 2>/dev/null || true)
+  echo $((max + 1))
+}
+
+render_client(){
+  local name="$1" ip="$2"
+  umask 077
+  cat > "$CLIENTS_DIR/$name.conf" <<EOF
+[Interface]
+PrivateKey = $(cat "$CLIENTS_DIR/$name.key")
+Address = $ip/32
+DNS = $DNS
+MTU = $MTU
+
+[Peer]
+PublicKey = $(cat "$WG_DIR/server_public.key")
+Endpoint = $ENDPOINT:$PORT
+AllowedIPs = 0.0.0.0/0
+PersistentKeepalive = 25
+EOF
+}
+
+cmd_add(){
+  validate_name "${1:-}"; local name="$1"
+  init_conf >/dev/null
+  if peer_exists "$name"; then echo "exists: $name"; return 0; fi
+  umask 077
+  [ -f "$CLIENTS_DIR/$name.key" ] || wg genkey > "$CLIENTS_DIR/$name.key"
+  wg pubkey < "$CLIENTS_DIR/$name.key" > "$CLIENTS_DIR/$name.pub"
+  local ip="$IP_PREFIX.$(next_ip)"
+  printf '\n# name = %s\n[Peer]\nPublicKey = %s\nAllowedIPs = %s/32\n' \
+    "$name" "$(cat "$CLIENTS_DIR/$name.pub")" "$ip" >> "$CONF"
+  render_client "$name" "$ip"
+  apply
+  echo "added: $name ($ip) -> $CLIENTS_DIR/$name.conf"
+}
+
+cmd_remove(){
+  validate_name "${1:-}"; local name="$1"
+  peer_exists "$name" || { echo "not found: $name"; return 0; }
+  awk -v n="# name = $name" '
+    $0==n {skip=3; next}
+    skip>0 { if ($0 ~ /^AllowedIPs/) skip=0; next }
+    {print}
+  ' "$CONF" | cat -s > "$CONF.tmp" && mv "$CONF.tmp" "$CONF"
+  chmod 600 "$CONF"
+  rm -f "$CLIENTS_DIR/$name.key" "$CLIENTS_DIR/$name.pub" "$CLIENTS_DIR/$name.conf"
+  apply
+  echo "removed: $name"
+}
+
+cmd_list(){
+  [ -f "$CONF" ] || { echo "no config yet"; return 0; }
+  declare -A HS; local pk h
+  while IFS=$'\t' read -r pk _ _ _ h _ _ _; do HS["$pk"]="$h"; done \
+    < <(wg show "$IFACE" dump 2>/dev/null | tail -n +2 || true)
+  printf "%-26s %-12s %s\n" "NAME" "IP" "STATUS"
+  local name="" pkx="" ip="" now; now=$(date +%s)
+  while IFS= read -r line; do
+    case "$line" in
+      "# name = "*) name="${line#\# name = }" ;;
+      "PublicKey = "*) pkx="${line#PublicKey = }" ;;
+      "AllowedIPs = "*) ip="${line#AllowedIPs = }"; ip="${ip%%/*}"
+        local hv="${HS[$pkx]:-0}" st="never"
+        if [ "${hv:-0}" -gt 0 ]; then local age=$((now - hv)); [ "$age" -lt 180 ] && st="online" || st="${age}s ago"; fi
+        printf "%-26s %-12s %s\n" "$name" "$ip" "$st"; name=""; pkx="" ;;
+    esac
+  done < "$CONF"
+}
+
+cmd_show(){
+  validate_name "${1:-}"; local f="$CLIENTS_DIR/$1.conf"
+  [ -f "$f" ] || die "no config for $1 (add it first)"
+  echo "$f"
+  command -v qrencode >/dev/null && qrencode -t ansiutf8 < "$f" || true
+}
+
+case "${1:-}" in
+  add)    shift; cmd_add "${1:-}" ;;
+  remove) shift; cmd_remove "${1:-}" ;;
+  list)   cmd_list ;;
+  show)   shift; cmd_show "${1:-}" ;;
+  init)   init_conf ;;
+  *) echo "Usage: wg-client {add|remove|list|show|init} [name]"; exit 1 ;;
+esac

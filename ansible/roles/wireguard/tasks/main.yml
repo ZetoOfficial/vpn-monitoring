@@ -14,45 +14,18 @@
         state: directory
         mode: "0700"
 
-    - name: Ensure server + client keys exist; emit key material (JSON)
-      ansible.builtin.shell: |
-        set -euo pipefail
-        cd {{ wg_dir }}
-        umask 077
-        [ -f server_private.key ] || wg genkey > server_private.key
-        [ -f server_public.key ]  || wg pubkey < server_private.key > server_public.key
-        mkdir -p clients
-        i={{ wg_client_ip_base }}
-        printf '{"server":{"priv":"%s","pub":"%s"},"clients":{' "$(cat server_private.key)" "$(cat server_public.key)"
-        first=1
-        for name in {{ wg_clients | map(attribute='name') | join(' ') }}; do
-          [ -f "clients/$name.key" ] || wg genkey > "clients/$name.key"
-          [ -f "clients/$name.pub" ] || wg pubkey < "clients/$name.key" > "clients/$name.pub"
-          [ $first -eq 0 ] && printf ','
-          printf '"%s":{"priv":"%s","pub":"%s","ip":"10.10.0.%s"}' "$name" "$(cat clients/$name.key)" "$(cat clients/$name.pub)" "$i"
-          first=0; i=$((i+1))
-        done
-        printf '}}'
-      args:
-        executable: /bin/bash
-      register: _wg_keys
-      changed_when: false
-      no_log: true
-
-    - name: Load key material
-      ansible.builtin.set_fact:
-        _wg: "{{ _wg_keys.stdout | from_json }}"
-      no_log: true
-
-    - name: Render server config
+    - name: Install wg-client manager
       ansible.builtin.template:
-        src: wg0.conf.j2
-        dest: "{{ wg_dir }}/{{ wg_interface }}.conf"
+        src: wg-client.sh.j2
+        dest: /usr/local/bin/wg-client
         owner: root
         group: root
-        mode: "0600"
-      no_log: true
-      notify: Restart wireguard
+        mode: "0755"
+
+    - name: Bootstrap wg config (interface only; peers owned by wg-client)
+      ansible.builtin.command: wg-client init
+      register: _wg_init
+      changed_when: "'created' in _wg_init.stdout"
 
     - name: Enable and start WireGuard
       ansible.builtin.systemd:
@@ -61,17 +34,15 @@
         enabled: true
         daemon_reload: true
 
-    - name: Render client configs
-      ansible.builtin.template:
-        src: client.conf.j2
-        dest: "{{ wg_dir }}/clients/{{ item.name }}.conf"
-        owner: root
-        group: root
-        mode: "0600"
-      loop: "{{ wg_clients }}"
+    # Additive reconcile: ensure declared peers exist (wg-client skips existing
+    # and never removes CLI-managed peers). Mirrors the awg_clients model.
+    - name: Ensure declared WireGuard peers exist
+      ansible.builtin.command: "wg-client add {{ item.name }}"
+      loop: "{{ wg_clients | default([]) }}"
       loop_control:
         label: "{{ item.name }}"
-      no_log: true
+      register: _wg_add
+      changed_when: "'added' in _wg_add.stdout"
 
     # --- wg peer exporter (textfile) for A/B vs AmneziaWG ---
     - name: Install wg-peer-exporter script
@@ -104,7 +75,7 @@
       ansible.builtin.command: /usr/local/bin/wg-peer-exporter
       changed_when: false
 
-    - name: Fetch client configs to control machine
+    - name: Fetch declared client configs to control machine
       ansible.builtin.fetch:
         src: "{{ wg_dir }}/clients/{{ item.name }}.conf"
         dest: "{{ wg_config_fetch_dir }}/"
