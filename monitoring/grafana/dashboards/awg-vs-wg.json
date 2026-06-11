@@ -1,0 +1,55 @@
+{
+  "uid": "awg-vs-wg",
+  "title": "AmneziaWG vs WireGuard (A/B)",
+  "tags": ["amneziawg", "wireguard", "ab"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-3h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "type": "text", "title": "Что это", "id": 100,
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 0 },
+      "options": { "mode": "markdown", "content": "## ⚖️ AmneziaWG vs голый WireGuard\n\nОдин хост, два VPN: **awg0** (AmneziaWG, обфускация, порт 51820, MTU 1280) и **wg0** (plain WireGuard, порт 51821, MTU 1420).\n\n**Как тестить:** дай Владимиру конфиг `vladimir-pc-wgtest` — пусть на **том же ПК** прогонит speedtest и через AWG, и через WG.\n- WG заметно быстрее → дело в стеке/обфускации AmneziaWG.\n- Скорость такая же → AWG не виноват (подтверждает: проблема в его канале/ПК).\n\n⚠️ Голый WireGuard в РФ детектируется DPI и может быть заблокирован — это только для теста." }
+    },
+    { "type": "row", "title": "Пропускная способность по интерфейсам", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }, "id": 1 },
+    {
+      "type": "timeseries", "title": "Download (server → clients), Bps",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 }, "id": 2,
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(node_network_transmit_bytes_total{device=~\"awg0|wg0\"}[5m])", "legendFormat": "{{device}}" } ]
+    },
+    {
+      "type": "timeseries", "title": "Upload (clients → server), Bps",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 }, "id": 3,
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(node_network_receive_bytes_total{device=~\"awg0|wg0\"}[5m])", "legendFormat": "{{device}}" } ]
+    },
+    { "type": "row", "title": "WireGuard тест-пиры", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }, "id": 4 },
+    {
+      "type": "timeseries", "title": "WG peer traffic rate (rx/tx), Bps",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 }, "id": 5,
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(wg_peer_rx_bytes_total[5m])", "legendFormat": "{{peer}} rx" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(wg_peer_tx_bytes_total[5m])", "legendFormat": "{{peer}} tx" }
+      ]
+    },
+    {
+      "type": "timeseries", "title": "WG peer online / handshake age (s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 }, "id": 6,
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "wg_peer_handshake_age_seconds", "legendFormat": "{{peer}} hs age" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "wg_peer_online", "legendFormat": "{{peer}} online" }
+      ]
+    }
+  ]
+}
