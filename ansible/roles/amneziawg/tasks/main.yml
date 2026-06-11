@@ -6,35 +6,46 @@
 # unreachable) -> wait for the host -> repeat, until the manage script appears.
 # The `creates:` guard makes passes after completion a no-op.
 
-- name: Build AmneziaWG installer flags
-  ansible.builtin.set_fact:
-    _awg_installer_flags: >-
-      --yes
-      --port={{ awg_port }}
-      --subnet={{ awg_tunnel_subnet }}
-      {{ '--disallow-ipv6' if awg_disable_ipv6 else '--allow-ipv6' }}
-      {% if awg_route_mode == 'all' %}--route-all
-      {% elif awg_route_mode == 'custom' %}--route-custom={{ awg_route_custom_nets }}
-      {% else %}--route-amnezia
-      {% endif %}
-      --preset={{ awg_preset }}
-      --ssh-port={{ awg_ssh_port }}
-      {% if awg_endpoint | default('') | length > 0 %}--endpoint={{ awg_endpoint }}
-      {% endif %}
-      {{ awg_installer_extra_args }}
+- name: Check whether AmneziaWG is already installed
+  ansible.builtin.stat:
+    path: "{{ awg_manage_script }}"
+  register: _awg_manage_pre
 
-- name: Download pinned AmneziaWG installer
-  ansible.builtin.get_url:
-    url: "https://raw.githubusercontent.com/bivlked/amneziawg-installer/{{ awg_installer_version }}/install_amneziawg_en.sh"
-    dest: /root/install_amneziawg_en.sh
-    mode: "0700"
+# Only run the (slow, reboot-tolerant) installer loop on a FRESH host. Once the
+# manage script exists, skip download + the 4x wait_for_connection passes — they
+# were a no-op anyway (creates: guard) and added ~80s to every re-deploy.
+- name: Install AmneziaWG (fresh host only)
+  when: not _awg_manage_pre.stat.exists
+  block:
+    - name: Build AmneziaWG installer flags
+      ansible.builtin.set_fact:
+        _awg_installer_flags: >-
+          --yes
+          --port={{ awg_port }}
+          --subnet={{ awg_tunnel_subnet }}
+          {{ '--disallow-ipv6' if awg_disable_ipv6 else '--allow-ipv6' }}
+          {% if awg_route_mode == 'all' %}--route-all
+          {% elif awg_route_mode == 'custom' %}--route-custom={{ awg_route_custom_nets }}
+          {% else %}--route-amnezia
+          {% endif %}
+          --preset={{ awg_preset }}
+          --ssh-port={{ awg_ssh_port }}
+          {% if awg_endpoint | default('') | length > 0 %}--endpoint={{ awg_endpoint }}
+          {% endif %}
+          {{ awg_installer_extra_args }}
 
-- name: Install AmneziaWG (idempotent; tolerates reboots between installer steps)
-  ansible.builtin.include_tasks: install_attempt.yml
-  loop: "{{ range(1, awg_install_max_attempts + 1) | list }}"
-  loop_control:
-    loop_var: _awg_attempt
-    label: "attempt {{ _awg_attempt }}/{{ awg_install_max_attempts }}"
+    - name: Download pinned AmneziaWG installer
+      ansible.builtin.get_url:
+        url: "https://raw.githubusercontent.com/bivlked/amneziawg-installer/{{ awg_installer_version }}/install_amneziawg_en.sh"
+        dest: /root/install_amneziawg_en.sh
+        mode: "0700"
+
+    - name: Install AmneziaWG (idempotent; tolerates reboots between installer steps)
+      ansible.builtin.include_tasks: install_attempt.yml
+      loop: "{{ range(1, awg_install_max_attempts + 1) | list }}"
+      loop_control:
+        loop_var: _awg_attempt
+        label: "attempt {{ _awg_attempt }}/{{ awg_install_max_attempts }}"
 
 - name: Check the manage script is present
   ansible.builtin.stat:
