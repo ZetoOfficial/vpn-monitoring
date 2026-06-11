@@ -20,6 +20,28 @@
     proto: tcp
   loop: "{{ existing_public_tcp_ports | default([]) }}"
 
+# Plain WireGuard (A/B alongside AmneziaWG), only when enabled.
+- name: Allow WireGuard UDP port
+  community.general.ufw:
+    rule: allow
+    port: "{{ wg_port | default(51821) }}"
+    proto: udp
+  when: wireguard_enabled | default(false)
+
+- name: Allow forwarding in on wg interface
+  community.general.ufw:
+    route: true
+    rule: allow
+    interface_in: "{{ wg_interface | default('wg0') }}"
+  when: wireguard_enabled | default(false)
+
+- name: Allow forwarding out on wg interface
+  community.general.ufw:
+    route: true
+    rule: allow
+    interface_out: "{{ wg_interface | default('wg0') }}"
+  when: wireguard_enabled | default(false)
+
 - name: Set default incoming policy to deny
   community.general.ufw:
     direction: incoming

@@ -1,0 +1,18 @@
+---
+# Plain WireGuard, coexisting with AmneziaWG on the same host (separate
+# interface/port/subnet/NAT). Gated by wireguard_enabled.
+wireguard_enabled: false
+wg_interface: "wg0"
+wg_dir: "/etc/wireguard"
+wg_port: 51821
+wg_subnet: "10.10.0.1/24"          # server address inside the tunnel
+wg_subnet_cidr: "10.10.0.0/24"
+wg_mtu: 1420                        # plain WG default; lower to A/B vs AWG's 1280
+wg_endpoint: "{{ awg_endpoint | default('') }}"
+wg_dns: "1.1.1.1"
+wg_client_ip_base: 10              # clients get 10.10.0.<base+index>
+
+wg_clients: []                     # [{ name: <peer> }]
+
+node_exporter_textfile_dir: "/var/lib/node_exporter/textfile_collector"
+wg_config_fetch_dir: "{{ playbook_dir }}/../../backups/wg-configs"

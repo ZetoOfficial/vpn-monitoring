@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Managed by Ansible (role: wireguard). Per-peer plain-WireGuard metrics into the
+# node_exporter textfile collector, mirroring awg_peer_* as wg_peer_* so the two
+# backends can be compared in Grafana. Name map from "# name =" comments in the
+# server config; live data from `wg show <iface> dump`.
+set -euo pipefail
+
+IFACE="{{ wg_interface }}"
+CONF="{{ wg_dir }}/{{ wg_interface }}.conf"
+OUT="{{ node_exporter_textfile_dir }}/wg_peers.prom"
+
+now=$(date +%s)
+tmp=$(mktemp)
+
+declare -A pk2name
+_name=""
+while IFS= read -r line; do
+  case "$line" in
+    "# name = "*) _name="${line#\# name = }" ;;
+    "PublicKey = "*) _pk="${line#PublicKey = }"; [[ -n "$_name" ]] && pk2name["$_pk"]="$_name"; _name="" ;;
+  esac
+done < "$CONF"
+
+{
+  echo "# HELP wg_peer_online 1 if peer handshake age < 180s"
+  echo "# TYPE wg_peer_online gauge"
+  echo "# TYPE wg_peer_handshake_age_seconds gauge"
+  echo "# TYPE wg_peer_rx_bytes_total counter"
+  echo "# TYPE wg_peer_tx_bytes_total counter"
+  while IFS=$'\t' read -r pk _psk _ep _aips hs rx tx _ka; do
+    n="${pk2name[$pk]:-$pk}"
+    echo "wg_peer_rx_bytes_total{peer=\"$n\"} ${rx:-0}"
+    echo "wg_peer_tx_bytes_total{peer=\"$n\"} ${tx:-0}"
+    if [[ "${hs:-0}" =~ ^[0-9]+$ && "${hs:-0}" -gt 0 ]]; then
+      age=$((now - hs))
+      echo "wg_peer_handshake_age_seconds{peer=\"$n\"} $age"
+      echo "wg_peer_online{peer=\"$n\"} $([[ $age -lt 180 ]] && echo 1 || echo 0)"
+    else
+      echo "wg_peer_online{peer=\"$n\"} 0"
+    fi
+  done < <(wg show "$IFACE" dump 2>/dev/null | tail -n +2)
+} > "$tmp"
+
+mv "$tmp" "$OUT"
+chmod 644 "$OUT"

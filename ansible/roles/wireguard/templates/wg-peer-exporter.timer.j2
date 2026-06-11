@@ -1,0 +1,10 @@
+[Unit]
+Description=Run wg-peer-exporter periodically
+
+[Timer]
+OnBootSec=30
+OnUnitActiveSec=60
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

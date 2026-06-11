@@ -11,5 +11,6 @@
     - node_exporter
     - awg_peer_exporter
     - amneziawg_exporter
+    - wireguard        # optional plain-WG backend for A/B (gated by wireguard_enabled)
     - docker           # runtime for the observability stack
     - monitoring_stack # docker-compose Prometheus + Grafana (host network)

@@ -1,0 +1,11 @@
+[Interface]
+PrivateKey = {{ _wg.clients[item.name].priv }}
+Address = {{ _wg.clients[item.name].ip }}/32
+DNS = {{ wg_dns }}
+MTU = {{ wg_mtu }}
+
+[Peer]
+PublicKey = {{ _wg.server.pub }}
+Endpoint = {{ wg_endpoint }}:{{ wg_port }}
+AllowedIPs = 0.0.0.0/0
+PersistentKeepalive = 25

@@ -1,0 +1,15 @@
+[Interface]
+Address = {{ wg_subnet }}
+ListenPort = {{ wg_port }}
+PrivateKey = {{ _wg.server.priv }}
+# NAT only (forwarding is handled by ufw route rules in the firewall role).
+PostUp = iptables -t nat -A POSTROUTING -s {{ wg_subnet_cidr }} -o {{ ansible_default_ipv4.interface }} -j MASQUERADE
+PostDown = iptables -t nat -D POSTROUTING -s {{ wg_subnet_cidr }} -o {{ ansible_default_ipv4.interface }} -j MASQUERADE
+
+{% for c in wg_clients %}
+# name = {{ c.name }}
+[Peer]
+PublicKey = {{ _wg.clients[c.name].pub }}
+AllowedIPs = {{ _wg.clients[c.name].ip }}/32
+
+{% endfor %}
